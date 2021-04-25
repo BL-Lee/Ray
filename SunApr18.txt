@@ -1,0 +1,5 @@
+Config: 4 cores, 512 rays per pixel, 64x64 tiles at 16k/tile
+Raytracing...100%
+Took 29875.706000ms
+Total bounces: 813837842
+Took 0.000037ms per bounce
