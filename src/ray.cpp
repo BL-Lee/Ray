@@ -7,6 +7,8 @@
 #include <time.h>
 #include "Threads.h"
 #define RAYS_PER_PIXEL 512
+#define IMAGE_WIDTH 1280
+#define IMAGE_HEIGHT 720
 #if 0
 #define CONSOLE_WIDTH 80
 #define CONSOLE_HEIGHT 24
@@ -61,7 +63,7 @@ void renderTile(World* world, Image image,
 	  vec3 colour = rayTrace(world, camera, filmY, filmX, sampleCount);	  
 	  colour = linearToSRGB(colour);
 	  
-	  u32 bitmapColour = packRGBA({1.0, colour.x, colour.y, colour.z});
+	  u32 bitmapColour = packRGBAtoARGB({ colour.x, colour.y, colour.z, 1.0f });
 	  //ARGB
 	  *out = bitmapColour;
 	  out++;
@@ -261,7 +263,7 @@ int main(int argc, char** argv)
   //assert(coreCount > 0);
 
   //Image setup
-  Image image = allocateImage(1280,720);
+  Image image = allocateImage(IMAGE_WIDTH, IMAGE_HEIGHT);
   u32* out = image.pixels;
   
   //World setup
@@ -365,8 +367,9 @@ int main(int argc, char** argv)
   queue.raysPerPixel = RAYS_PER_PIXEL;
   queue.camera = &camera;
   
-  printf("Config: %d cores, %d rays per pixel, %dx%d tiles at %dk/tile\nLane Width: %d\n",
+  printf("Config: Use CPU, %d cores, %d rays per pixel, %dx%d image,\n\t%dx%d tiles at %dk/tile\nLane Width: %d\n",
 	 coreCount, queue.raysPerPixel,
+	 IMAGE_WIDTH, IMAGE_HEIGHT,
 	 tileWidth, tileHeight, tileWidth*tileHeight*4/1024,
 	 LANE_WIDTH);
  

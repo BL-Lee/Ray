@@ -101,7 +101,7 @@ typedef struct vec3
   float x;
   float y;
   float z;
-
+  
   inline vec3 &operator+=(vec3 b);
   inline vec3 &operator-=(vec3 b);
   inline vec3 &operator*=(float b);
@@ -566,13 +566,13 @@ inline float sqrt(float a)
 }*/
 
 /*Colour*/
-inline unsigned int packRGBA(vec4 a)
+inline unsigned int packRGBAtoARGB(vec4 a)
 {
   unsigned char R = (unsigned char)(a.x * 255.0f);
-  unsigned char B = (unsigned char)(a.y * 255.0f);
-  unsigned char G = (unsigned char)(a.z * 255.0f);
+  unsigned char G = (unsigned char)(a.y * 255.0f);
+  unsigned char B = (unsigned char)(a.z * 255.0f);
   unsigned char A = (unsigned char)(a.w * 255.0f);
-  return A | (G<<8) | (B<<16) | (R<<24);
+  return (A<<24) | (R<<16) | (G<<8) | (B<<0);
 }
 
 inline float linearToSRGB(float linear)

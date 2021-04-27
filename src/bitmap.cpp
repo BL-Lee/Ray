@@ -53,7 +53,7 @@ void writeImage(Image* image, const char* file)
   BITMAPINFOHEADER infoHeader = {};
   infoHeader.size = BITMAPINFOHEADER_PACKED_SIZE;
   infoHeader.width = image->width;
-  infoHeader.height = --image->height;
+  infoHeader.height = image->height;
   infoHeader.planes = 1;
   infoHeader.bitsPerPixel = bitsPerPixel;
   infoHeader.compressionMethod = 0; //no compression

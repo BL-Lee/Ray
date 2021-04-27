@@ -1,0 +1,6 @@
+Config: Use GPU, 512 rays per pixel, 1280x720 image, work group size: 8x8
+Initializing OpenCL... Done!
+Ray tracing... Done!
+Took 1394.201000ms
+Total bounces: 813643697
+Took 0.000002ms per bounce

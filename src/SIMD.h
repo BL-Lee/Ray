@@ -6,8 +6,9 @@
 #include "Math.h"
 
 
-
+#ifndef LANE_WIDTH
 #define LANE_WIDTH 8
+#endif
 
 #if (LANE_WIDTH == 8)
 
