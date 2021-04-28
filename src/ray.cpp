@@ -1,14 +1,17 @@
 #include <stdio.h>
-#include "bitmap.h"
-
-#include "Types.h"
-#include "ray.h"
 #include <float.h>
 #include <time.h>
+
+#include "bitmap.cpp"
+#include "world.cpp"
+#include "camera.cpp"
+#include "ray.h"
 #include "Threads.h"
+
 #define RAYS_PER_PIXEL 512
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
+
 #if 0
 #define CONSOLE_WIDTH 80
 #define CONSOLE_HEIGHT 24
@@ -44,7 +47,6 @@ int main(int argc, char** argv) {
       sleep(1);
       }
 }
-
 #endif
 
 void renderTile(World* world, Image image,
@@ -264,92 +266,8 @@ int main(int argc, char** argv)
   Image image = allocateImage(IMAGE_WIDTH, IMAGE_HEIGHT);
   u32* out = image.pixels;
   
-  //World setup
-  World world = {};
-  world.materials[0] = {};
-  world.materials[0].reflectColour = {};
-  world.materials[0].emitColour = { 1.0f, 1.0f, 1.0f };
-  
-  world.materials[1] = {};
-  world.materials[1].reflectColour = { 0.8f, 0.7f, 0.2f };
-  world.materials[1].scatterScale = 0.2;
-  
-  world.materials[2].emitColour = {};
-  world.materials[2].reflectColour = { 0.0f, 0.2f, 1.0f };
-  world.materials[2].scatterScale = 0.7;
-  
-  world.materials[3].emitColour = {99.0f,0.0f,0.0f};
-  world.materials[3].reflectColour = { 0.0f, 0.0f, 0.0f };
-  world.materials[3].scatterScale = 1;
-  
-  world.materials[4].emitColour = {};
-  world.materials[4].reflectColour = { 0.1f, 0.4f, 0.8f };
-  world.materials[4].scatterScale = 1.0;
-  
-  world.materials[5].emitColour = {0.0f,0.0f,0.0f};
-  world.materials[5].reflectColour = {0.2f,0.9f,0.2f};
-  world.materials[5].scatterScale = 0.9;
-
-  world.materials[6].emitColour = {};
-  world.materials[6].reflectColour = {1.0f,1.0f,1.0f};
-  world.materials[6].scatterScale = 1.0f;
-  world.materialCount = 7;
-  
-  world.planes[0].normal = { 0.0f, 0.0f, 1.0f };
-  world.planes[0].dist = 0.0f;
-  world.planes[0].matIndex = 1;
-  world.planeCount = 1;
-
-  
-  world.spheres[0].position = { 0.0f, 0.0f, 0.0f };
-  world.spheres[0].radius = 1.0f;
-  world.spheres[0].matIndex = 2;
-
-  world.spheres[1].position = { -2.0f, 1.0f, 2.0f };
-  world.spheres[1].radius = 1.2f;
-  world.spheres[1].matIndex = 4;
-  
-  world.spheres[2].position = { 2.0f, 0.0f, 1.0f };
-  world.spheres[2].radius = 1.0f;
-  world.spheres[2].matIndex = 3;
-  
-  world.spheres[3].position = { 2.0f, 10.0f, 6.0f };
-  world.spheres[3].radius = 2.0f;
-  world.spheres[3].matIndex = 5;
-  world.sphereCount = 4;
-
-
-  Camera camera;
-  camera.pos = { 0.0, -10.0, 1.0 };
-  camera.lensRadius = 0.10f;
-  //aim at origin
-  //aim in -z direction, local to camera
-  //Just getting 3 orthoganal vectors for the camera
-  camera.target = { 0.0, 0.0, 0.0 };
-  camera.Z = normalize(camera.pos - camera.target);
-  camera.X = normalize(cross({ 0.0, 0.0, 1.0 }, camera.Z));
-  camera.Y = normalize(cross(camera.Z, camera.X));
-
-  camera.focusDist = length(camera.pos - camera.target);
-  camera.filmCenter = camera.pos - (camera.Z * camera.focusDist);
-  camera.filmWidth = 1.0f;
-  camera.filmHeight = 1.0f;
-  if (image.width > image.height)
-    {
-      camera.filmWidth = (f32)image.width / (f32)image.height;
-    }
-  else if (image.height > image.width)
-    {
-      camera.filmHeight = (f32)image.height / (f32)image.width;
-    }
-  camera.filmWidth *= camera.focusDist;
-  camera.filmHeight *= camera.focusDist;
-  camera.halfFilmWidth = 0.5f * camera.filmWidth;
-  camera.halfFilmHeight = 0.5f * camera.filmHeight;
-  camera.halfPixelWidth = camera.halfFilmWidth * (1.0f / (f32)image.width);
-  camera.halfPixelHeight = camera.halfFilmHeight * (1.0f / (f32)image.height);
-
-
+  World* world = initWorld();
+  Camera* camera = initCamera(image);
   
   //split into tiles
   u32 tileWidth = 64;//image.width / coreCount;
@@ -357,20 +275,20 @@ int main(int argc, char** argv)
   //biased so that it goes over, so you dont have an empty region
   u32 tileCountX = (image.width + tileWidth - 1) / tileWidth;
   u32 tileCountY = (image.height + tileHeight - 1) / tileHeight;
-  world.totalTileCount = tileCountY * tileCountX;
+  world->totalTileCount = tileCountY * tileCountX;
   u32 tilesCompleted = 0;
 
   WorkQueue queue = {};
-  queue.totalOrders = world.totalTileCount;
+  queue.totalOrders = world->totalTileCount;
   queue.queue = (WorkOrder*)malloc(sizeof(WorkOrder) * queue.totalOrders);
   queue.raysPerPixel = RAYS_PER_PIXEL;
-  queue.camera = &camera;
+  queue.camera = camera;
   
   printf("Config: Use CPU, %d cores, %d rays per pixel, %dx%d image,\n\t%dx%d tiles at %dk/tile, Lane Width: %d\n\tLens radius: %.4f\n",
 	 coreCount, queue.raysPerPixel,
 	 IMAGE_WIDTH, IMAGE_HEIGHT,
 	 tileWidth, tileHeight, tileWidth*tileHeight*4/1024,
-	 LANE_WIDTH, camera.lensRadius);
+	 LANE_WIDTH, camera->lensRadius);
  
   //render
   WorkOrder* order = queue.queue;
@@ -391,7 +309,7 @@ int main(int argc, char** argv)
 	      onePastMaxX = image.width;
 	    }
 	  
-	  order->world = &world;
+	  order->world = world;
 	  order->image = image;
 	  order->minX = minX;
 	  order->onePastMaxX = onePastMaxX;
@@ -414,7 +332,7 @@ int main(int argc, char** argv)
     {
       CreateThread(&threadIDs[coreThread-1], threadProc, &queue);
     }
-  while (world.tilesCompleted < world.totalTileCount)
+  while (world->tilesCompleted < world->totalTileCount)
     {
       //make this core work too
       u32 workIndex = LockedAdd(&queue.workIndex, 1);
@@ -423,10 +341,10 @@ int main(int argc, char** argv)
 	  WorkOrder order = queue.queue[workIndex];
 	  renderTile(order.world, order.image,
 		     order.minX, order.onePastMaxX,
-		     order.minY, order.onePastMaxY, queue.raysPerPixel, &camera);
+		     order.minY, order.onePastMaxY, queue.raysPerPixel, camera);
 	}
       
-      printf("\rRaytracing...%llu%%", 100 * world.tilesCompleted / world.totalTileCount);
+      printf("\rRaytracing...%llu%%", 100 * world->tilesCompleted / world->totalTileCount);
       fflush(stdout);
     }
   for (u32 coreThread = 1; coreThread < coreCount; coreThread++)
@@ -441,13 +359,15 @@ int main(int argc, char** argv)
   elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000.0;
   //finish up and print stats
   printf("Took %lfms\n", elapsed);
-  printf("Total bounces: %llu\n", world.bounceCount);
-  printf("Took %lfms per bounce\n",  (double)elapsed/ world.bounceCount);
+  printf("Total bounces: %llu\n", world->bounceCount);
+  printf("Took %lfms per bounce\n",  (double)elapsed/ world->bounceCount);
   
   
   writeImage(&image, "out.bmp");
   
   free(image.pixels);
+  free(world);
+  free(camera);
 
   
   return 0;

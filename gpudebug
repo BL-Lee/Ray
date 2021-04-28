@@ -3,6 +3,6 @@
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 cd "${DIR}"
 
-g++ -g -O0 -framework OpenCL --std=c++11 src/bitmap.cpp src/rayGPU.cpp src/OpenCL.cpp -o ray
+g++ -g -D__USE_OPENCL -O0 -framework OpenCL --std=c++11 src/rayGPU.cpp -o ray
 #./ray
 #open out.bmp
