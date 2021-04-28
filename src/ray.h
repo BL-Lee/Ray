@@ -59,6 +59,7 @@ typedef struct __attribute__((packed))
 
   vec3 filmCenter;
   float pad6;
+  f32 focusDist;
   f32 filmWidth;
   f32 filmHeight;
 
@@ -67,6 +68,7 @@ typedef struct __attribute__((packed))
   f32 halfPixelWidth;
   f32 halfPixelHeight;
 
+  f32 lensRadius;
 }cl_camera;
 
 #else
@@ -98,11 +100,11 @@ typedef struct _Material
 
 typedef struct _World
 {
-  Plane* planes;
-  int planeCount;
-  Sphere* spheres;
+  Plane planes[8];
+  Sphere spheres[8];
+  Material materials[8];
+  int planeCount;  
   int sphereCount;
-  Material* materials;
   int materialCount;
   u32 totalTileCount;
   volatile u64 bounceCount;
@@ -118,6 +120,7 @@ typedef struct _Camera
   vec3 Y;
 
   vec3 filmCenter;
+  f32 focusDist;
   f32 filmWidth;
   f32 filmHeight;
 
@@ -126,6 +129,7 @@ typedef struct _Camera
   f32 halfPixelWidth;
   f32 halfPixelHeight;
 
+  f32 lensRadius;
 }Camera;
 
 

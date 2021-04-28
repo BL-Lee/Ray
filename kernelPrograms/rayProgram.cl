@@ -41,6 +41,7 @@ typedef struct __attribute__((packed))_clCamera
   float3 Y;
 
   float3 filmCenter;
+  float focusDist;
   float filmWidth;
   float filmHeight;
 
@@ -48,6 +49,7 @@ typedef struct __attribute__((packed))_clCamera
   float halfFilmHeight;
   float halfPixelWidth;
   float halfPixelHeight;
+  float lensRadius;
 }clCamera;
 
 float Max(float a, float b);
@@ -129,18 +131,19 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
   
   for (uint i = 0; i < sampleCount; i++)
     {
-      float2 pixelOffset = {randomBilateral32(&entropy)*camera->halfPixelWidth,
-	                     randomBilateral32(&entropy)*camera->halfPixelHeight};
+      float2 pixelOffset = {randomUnilateral32(&entropy) * camera->halfPixelWidth * 2.0,
+	                     randomUnilateral32(&entropy) * camera->halfPixelHeight * 2.0};
  	      
       float3 filmPos = camera->filmCenter +
-	camera->Y * film.y * camera->halfFilmHeight +
-	camera->Y * film.y * pixelOffset.y +
-	camera->X * film.x * camera->halfFilmWidth +
-	camera->X * film.x * pixelOffset.x;
+	camera->Y * film.y * (camera->halfFilmHeight + pixelOffset.y) +
+	camera->X * film.x * camera->halfFilmWidth + pixelOffset.x;
+
+      float3 lensXOffset = {randomBilateral32(&entropy) * camera->lensRadius * camera->X};
+      float3 lensYOffset = {randomBilateral32(&entropy) * camera->lensRadius * camera->Y};
 
       
-      float3 rayOrigin = camera->pos;
-      float3 rayDirection = normalize(filmPos - camera->pos);
+      float3 rayOrigin = camera->pos + lensXOffset + lensYOffset;
+      float3 rayDirection = normalize(filmPos - rayOrigin);      
       float3 bounceNormal = {};
       float3 resultColour = {0.0,0.0,0.0};
       float3 attenuation = {1.0f,1.0f,1.0f};//how much the colour changes from the bounced material

@@ -1,0 +1,7 @@
+Config: Use CPU, 4 cores, 512 rays per pixel, 1280x720 image,
+	64x64 tiles at 16k/tile, Lane Width: 8
+	Lens radius: 0.1000
+Raytracing...100%
+Took 3038.118000ms
+Total bounces: 812899605
+Took 0.000004ms per bounce

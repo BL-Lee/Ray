@@ -89,6 +89,7 @@ int main(int argc, char** argv)
 
   cl_camera camera;
   camera.pos = { 0.0, -10.0, 1.0 };
+  camera.lensRadius = 0.10f;
   //aim at origin
   //aim in -z direction, local to camera
   //Just getting 3 orthoganal vectors for the camera
@@ -96,8 +97,9 @@ int main(int argc, char** argv)
   camera.Z = normalize(camera.pos - camera.target);
   camera.X = normalize(cross({ 0.0, 0.0, 1.0 }, camera.Z));
   camera.Y = normalize(cross(camera.Z, camera.X));
-  
-  camera.filmCenter = camera.pos - camera.Z;
+
+  camera.focusDist = length(camera.pos - camera.target);
+  camera.filmCenter = camera.pos - (camera.Z * camera.focusDist);
   camera.filmWidth = 1.0f;
   camera.filmHeight = 1.0f;
   if (image.width > image.height)
@@ -108,18 +110,21 @@ int main(int argc, char** argv)
     {
       camera.filmHeight = (f32)image.height / (f32)image.width;
     }
-  camera.halfFilmWidth = 0.5f * camera.filmWidth;
+  camera.filmWidth  *= camera.focusDist;
+  camera.filmHeight *= camera.focusDist;    
+  camera.halfFilmWidth  = 0.5f * camera.filmWidth;
   camera.halfFilmHeight = 0.5f * camera.filmHeight;
-  camera.halfPixelWidth = 0.5f / (f32)image.width;
-  camera.halfPixelHeight = 0.5f / (f32)image.height;
+  camera.halfPixelWidth  = camera.halfFilmWidth * (1.0f / (f32)image.width);
+  camera.halfPixelHeight = camera.halfFilmHeight * (1.0f / (f32)image.height);
 
   size_t globalWorkSize[2] = {image.width, image.height};
   size_t localWorkSize[2] = {8,8};
   
-  printf("Config: Use GPU, %d rays per pixel, %dx%d image, work group size: %lux%lu\n",
+  printf("Config: Use GPU, %d rays per pixel, %dx%d image, work group size: %lux%lu\n\tLens radius: %.4f\n",
 	 RAYS_PER_PIXEL,
 	 IMAGE_WIDTH, IMAGE_HEIGHT,
-	 localWorkSize[0], localWorkSize[1]);
+	 localWorkSize[0], localWorkSize[1],
+	 camera.lensRadius);
 
  
   //gpu boilerplate

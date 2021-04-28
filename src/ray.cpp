@@ -122,19 +122,20 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
     {
 
       //setup for this ray
-      lane_f32 pixelXOffset = randomBilateral32(&entropy)*camera->halfPixelWidth;
-      lane_f32 pixelYOffset = randomBilateral32(&entropy)*camera->halfPixelHeight;
-	      
+      lane_f32 pixelXOffset = randomUnilateral32(&entropy)*camera->halfPixelWidth * 2.0f;
+      lane_f32 pixelYOffset = randomUnilateral32(&entropy)*camera->halfPixelHeight * 2.0f;
+
       lane_v3 filmPos = camera->filmCenter +
-	cameraY * filmY * camera->halfFilmHeight +
-	cameraY * filmY * pixelYOffset +
-	cameraX * filmX * camera->halfFilmWidth +
-	cameraX * filmX * pixelXOffset;
+	cameraY * filmY * (camera->halfFilmHeight + pixelYOffset) + 
+	cameraX * filmX * (camera->halfFilmWidth + pixelXOffset);
       
+      lane_v3 lensXOffset = randomBilateral32(&entropy) * camera->lensRadius * cameraX;
+      lane_v3 lensYOffset = randomBilateral32(&entropy) * camera->lensRadius * cameraY;
+            
       lane_v3 rayOrigin;
-      rayOrigin = camera->pos;
+      rayOrigin = camera->pos + lensYOffset + lensXOffset;
       lane_v3 rayDirection;
-      rayDirection = normalize(filmPos - camera->pos);
+      rayDirection = normalize(filmPos - rayOrigin);
 
       lane_u32 laneMask;
       laneMask = 0xFFFFFFFF;
@@ -144,8 +145,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
       attenuation = vec3{1.0f,1.0f,1.0f};//how much the colour changes from the bounced material
       //Each time, a ray can bounce this many times
       for (u32 bounceCount = 0; bounceCount < 8; bounceCount++)
-	{	  
-	  
+	{	  	  
 	  lane_f32 minDist;
 	  minDist = FLT_MAX;
 	  lane_u32 matIndex;
@@ -217,8 +217,8 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 		}
 	    }
 
+	  //Set the colour based on what we hit
 	  lane_v3 emitColour = maskLaneV3(gatherV3(world->materials, matIndex, emitColour), laneMask);
-	  //if matIndex is set, then we hit something
 	  laneMask = andNot((matIndex == laneU32FromU32(0)), laneMask);      
 	  resultColour += hadamard(emitColour, attenuation);
 	  
@@ -234,6 +234,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 	      //add any colour this object emits, times the attenuation
 	      //clamp to 0-inf
 	      lane_f32 cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0));
+	      //cosAttenuation = 1.0f;
 	  
 	      //update attenuation based on reflection colour
 	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
@@ -241,16 +242,13 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 	      //setup for next bounce
 	      rayOrigin = rayOrigin + rayDirection * minDist;
 	  
-	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
-	      //TODO: different noise for random
-	      lane_f32 x = randomBilateral32(&entropy);
+	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);	      	    lane_f32 x = randomBilateral32(&entropy);
 	      lane_f32 y = randomBilateral32(&entropy);
 	      lane_f32 z = randomBilateral32(&entropy);	  
 	      lane_v3 randomBounce = normalize(bounceNormal + lane_v3{x,y,z});
 	      rayDirection = lerp(randomBounce, pureBounce,scatterScale);	  
 	    }
-	}
-      
+	}      
       finalColour += HorizontalAdd(resultColour);
     }
   LockedAdd(&world->bounceCount, HorizontalAdd(bouncesComputed));
@@ -268,64 +266,62 @@ int main(int argc, char** argv)
   
   //World setup
   World world = {};
-  Material materials[6];
-  materials[0] = {};
-  materials[0].reflectColour = {};
-  materials[0].emitColour = { 1.0f, 1.0f, 1.0f };
+  world.materials[0] = {};
+  world.materials[0].reflectColour = {};
+  world.materials[0].emitColour = { 1.0f, 1.0f, 1.0f };
   
-  materials[1] = {};
-  materials[1].reflectColour = { 0.8f, 0.7f, 0.2f };
-  materials[1].scatterScale = 0.2;
+  world.materials[1] = {};
+  world.materials[1].reflectColour = { 0.8f, 0.7f, 0.2f };
+  world.materials[1].scatterScale = 0.2;
   
-  materials[2].emitColour = {};
-  materials[2].reflectColour = { 0.0f, 0.2f, 1.0f };
-  materials[2].scatterScale = 0.7;
+  world.materials[2].emitColour = {};
+  world.materials[2].reflectColour = { 0.0f, 0.2f, 1.0f };
+  world.materials[2].scatterScale = 0.7;
   
-  materials[3].emitColour = {99.0f,0.0f,0.0f};
-  materials[3].reflectColour = { 0.0f, 0.0f, 0.0f };
-  materials[3].scatterScale = 1;
+  world.materials[3].emitColour = {99.0f,0.0f,0.0f};
+  world.materials[3].reflectColour = { 0.0f, 0.0f, 0.0f };
+  world.materials[3].scatterScale = 1;
   
+  world.materials[4].emitColour = {};
+  world.materials[4].reflectColour = { 0.1f, 0.4f, 0.8f };
+  world.materials[4].scatterScale = 1.0;
   
-  materials[4].emitColour = {};
-  materials[4].reflectColour = { 0.1f, 0.4f, 0.8f };
-  materials[4].scatterScale = 1.0;
+  world.materials[5].emitColour = {0.0f,0.0f,0.0f};
+  world.materials[5].reflectColour = {0.2f,0.9f,0.2f};
+  world.materials[5].scatterScale = 0.9;
+
+  world.materials[6].emitColour = {};
+  world.materials[6].reflectColour = {1.0f,1.0f,1.0f};
+  world.materials[6].scatterScale = 1.0f;
+  world.materialCount = 7;
   
-  materials[5].emitColour = {0.0f,0.0f,0.0f};
-  materials[5].reflectColour = {0.2f,0.9f,0.2f};
-  materials[5].scatterScale = 0.9;
+  world.planes[0].normal = { 0.0f, 0.0f, 1.0f };
+  world.planes[0].dist = 0.0f;
+  world.planes[0].matIndex = 1;
+  world.planeCount = 1;
 
   
-  Plane planes[1] = {};
-  planes[0].normal = { 0.0f, 0.0f, 1.0f };
-  planes[0].dist = 0.0f;
-  planes[0].matIndex = 1;
+  world.spheres[0].position = { 0.0f, 0.0f, 0.0f };
+  world.spheres[0].radius = 1.0f;
+  world.spheres[0].matIndex = 2;
 
-  Sphere spheres[4] = {};
-  spheres[0].position = { 0.0f, 0.0f, 0.0f };
-  spheres[0].radius = 1.0f;
-  spheres[0].matIndex = 2;
+  world.spheres[1].position = { -2.0f, 1.0f, 2.0f };
+  world.spheres[1].radius = 1.2f;
+  world.spheres[1].matIndex = 4;
+  
+  world.spheres[2].position = { 2.0f, 0.0f, 1.0f };
+  world.spheres[2].radius = 1.0f;
+  world.spheres[2].matIndex = 3;
+  
+  world.spheres[3].position = { 2.0f, 10.0f, 6.0f };
+  world.spheres[3].radius = 2.0f;
+  world.spheres[3].matIndex = 5;
+  world.sphereCount = 4;
 
-  spheres[1].position = { -2.0f, 1.0f, 2.0f };
-  spheres[1].radius = 1.2f;
-  spheres[1].matIndex = 4;
-  
-  spheres[2].position = { 2.0f, 0.0f, 1.0f };
-  spheres[2].radius = 1.0f;
-  spheres[2].matIndex = 3;
-  
-  spheres[3].position = { 2.0f, 10.0f, 6.0f };
-  spheres[3].radius = 2.0f;
-  spheres[3].matIndex = 5;
-    
-  world.planes = planes;
-  world.planeCount = sizeof(planes) / sizeof(Plane);
-  world.spheres = spheres;
-  world.sphereCount = sizeof(spheres) / sizeof(Sphere);
-  world.materials = materials;
-  world.materialCount = sizeof(materials) / sizeof(Material);
 
   Camera camera;
   camera.pos = { 0.0, -10.0, 1.0 };
+  camera.lensRadius = 0.10f;
   //aim at origin
   //aim in -z direction, local to camera
   //Just getting 3 orthoganal vectors for the camera
@@ -333,8 +329,9 @@ int main(int argc, char** argv)
   camera.Z = normalize(camera.pos - camera.target);
   camera.X = normalize(cross({ 0.0, 0.0, 1.0 }, camera.Z));
   camera.Y = normalize(cross(camera.Z, camera.X));
-  
-  camera.filmCenter = camera.pos - camera.Z;
+
+  camera.focusDist = length(camera.pos - camera.target);
+  camera.filmCenter = camera.pos - (camera.Z * camera.focusDist);
   camera.filmWidth = 1.0f;
   camera.filmHeight = 1.0f;
   if (image.width > image.height)
@@ -345,10 +342,12 @@ int main(int argc, char** argv)
     {
       camera.filmHeight = (f32)image.height / (f32)image.width;
     }
+  camera.filmWidth *= camera.focusDist;
+  camera.filmHeight *= camera.focusDist;
   camera.halfFilmWidth = 0.5f * camera.filmWidth;
   camera.halfFilmHeight = 0.5f * camera.filmHeight;
-  camera.halfPixelWidth = 0.5f / (f32)image.width;
-  camera.halfPixelHeight = 0.5f / (f32)image.height;
+  camera.halfPixelWidth = camera.halfFilmWidth * (1.0f / (f32)image.width);
+  camera.halfPixelHeight = camera.halfFilmHeight * (1.0f / (f32)image.height);
 
 
   
@@ -367,11 +366,11 @@ int main(int argc, char** argv)
   queue.raysPerPixel = RAYS_PER_PIXEL;
   queue.camera = &camera;
   
-  printf("Config: Use CPU, %d cores, %d rays per pixel, %dx%d image,\n\t%dx%d tiles at %dk/tile\nLane Width: %d\n",
+  printf("Config: Use CPU, %d cores, %d rays per pixel, %dx%d image,\n\t%dx%d tiles at %dk/tile, Lane Width: %d\n\tLens radius: %.4f\n",
 	 coreCount, queue.raysPerPixel,
 	 IMAGE_WIDTH, IMAGE_HEIGHT,
 	 tileWidth, tileHeight, tileWidth*tileHeight*4/1024,
-	 LANE_WIDTH);
+	 LANE_WIDTH, camera.lensRadius);
  
   //render
   WorkOrder* order = queue.queue;
@@ -391,7 +390,6 @@ int main(int argc, char** argv)
 	    {
 	      onePastMaxX = image.width;
 	    }
-
 	  
 	  order->world = &world;
 	  order->image = image;
