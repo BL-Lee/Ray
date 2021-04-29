@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-int32_t CreateThread(uint64_t* id, void* (*routine)(void*), void* args);
-int32_t JoinThread(uint64_t id, void** retval);
+void CreateThread(uint64_t* id, void* (*routine)(void*), void* args);
+void JoinThread(uint64_t id, void** retval);
 uint64_t LockedAdd(volatile uint64_t* recipient, uint64_t amount);
 int32_t GetNumProcessors();
 
@@ -14,14 +14,14 @@ int32_t GetNumProcessors();
  #include <unistd.h>
 
 
- int CreateThread(pthread_t* id, void* (*routine)(void*), void* args)
+ void CreateThread(pthread_t* id, void* (*routine)(void*), void* args, void* handle)
  {
-   return pthread_create(id, NULL, routine, args);
+   pthread_create(id, NULL, routine, args);
  }
 
- int JoinThread(pthread_t id, void** retval)
+ void JoinThread(void* id, void** retval)
  {
-   return pthread_join(id, retval);
+   pthread_join(*(pthread_t*)id, retval);
  }
 
  uint64_t LockedAdd(volatile uint64_t* recipient, uint64_t amount)
@@ -42,19 +42,23 @@ int32_t GetNumProcessors();
  /*THIS IS UNTESTED*/
  #include <windows.h>
 
- int32_t CreateThread(uint64_t* id, void* (*routine)(void*), void* args)
+ //TODO: rename this so it doesn't have the same name as the windows create thread
+ void CreateThread(uint64_t* id, void* (*routine)(void*), void* args)
  {
-   return CreateThread( 0, 0, routine, args, 0, id);
+   DWORD threadID;
+   HANDLE threadHandle = CreateThread( (LPSECURITY_ATTRIBUTES)NULL, (SIZE_T)NULL, (LPTHREAD_START_ROUTINE)routine, args, (DWORD)0, &threadID);
+   CloseHandle(threadHandle);
  }
 
- int32_t JoinThread(uint64_t id, void** retval)
+void JoinThread(void* id, void** retval)
  {
-   WaitForSingleObject(id, FLT_MAX);
+   WaitForSingleObject((HANDLE)id, FLT_MAX);
  }
 
+ //NOTE: This casts from unsigned to signed... this is okay?
  uint64_t LockedAdd(volatile uint64_t* recipient, uint64_t amount)
  {
-   return InterlockedExchangeAdd64(recipient, amount);
+   return InterlockedExchangeAdd64((int64_t*)recipient, amount);
  }
 
  int32_t GetNumProcessors()

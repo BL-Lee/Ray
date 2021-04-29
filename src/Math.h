@@ -30,6 +30,7 @@ typedef double   f64;
 # if defined(_M_AMD64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 1)
 #  define BL_MATH_USE_SSE 1
 # endif
+# include <math.h> //NOTE: this is for sqrt and pow, should figure out how to implement them yourself
 #endif
 #ifdef __SSE__
 # define BL_MATH_USE_SSE 1
@@ -620,20 +621,16 @@ inline uint64_t xorshift64(uint64_t *state)
   x ^= x << 17;
   return *state = x;
 }
-
-
 inline float randomUnilateral64(uint64_t *state)
 {
   return (float)xorshift64(state) / (float)((uint64_t)-1);//4294967295.0f);
 }
-
 inline float randomBilateral64(uint64_t *state)
 {
   return 1.0f - 2.0f*randomUnilateral64(state);
 }
-
   
-u32 xorshift32(u32 *state)
+inline u32 xorshift32(u32 *state)
 {
   /* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */
   u32 x = *state;
@@ -642,27 +639,16 @@ u32 xorshift32(u32 *state)
   x ^= x << 5;
   return *state = x;
 }
-
 inline f32 randomUnilateral32(u32 *state)
 {
   return (f32)(xorshift32(state)) / ((uint32_t)-1);
 }
-
 inline f32 randomBilateral32(u32 *state)
 {
   return 1.0f - 2.0f*randomUnilateral32(state);
 }
 
 
-/*
-float randomUnilateral(uint64_t *state)
-{
-  return rand() / (f32)RAND_MAX;
-}
-float randomBilateral(uint64_t *state)
-{
-  return 1.0f - 2.0f*(rand() / (f32)RAND_MAX);
-  }*/
 //scales
 float lerp(float min, float max, float value)
 {
@@ -673,17 +659,5 @@ vec3 lerp(vec3 min, vec3 max, float value)
   return min + (max-min)*value;
 }
 
-/*SIMD*/
 
-/*
-typedef struct _lane_f32
-{
-  
-}lane_f32;
-
-typedef struct _lane_u32
-{
-  
-}lane_u32;
-*/
 #endif

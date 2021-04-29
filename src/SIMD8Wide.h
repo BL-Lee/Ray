@@ -1,4 +1,4 @@
-#include <x86intrin.h>
+#include <immintrin.h>
 typedef struct lane_f32
 {
   __m256  V;
@@ -157,7 +157,7 @@ lane_u32 operator>(lane_f32 A, lane_f32 B)
 lane_f32 operator&(lane_u32 A, lane_f32 B)
 {
   lane_f32 result;
-  result.V = _mm256_and_si256(_mm256_castsi256_ps(A.V), B.V);
+  result.V = _mm256_and_ps(_mm256_castsi256_ps(A.V), B.V);
   return result;
 }
 

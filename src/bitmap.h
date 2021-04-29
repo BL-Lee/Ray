@@ -26,7 +26,7 @@ typedef struct _BITMAPINFOHEADER
   s32 vertPPM;
   u32 colourPaletteSize;
   u32 importantColours;
-}BITMAPINFOHEADER;
+}BMP_INFOHEADER;
 
 typedef struct _Image
 {
@@ -36,7 +36,7 @@ typedef struct _Image
 }Image;
 
 u8* BMPHeaderToByteBuffer(BMP_Header*);
-u8* BITMAPINFOHEADERToByteBuffer(BITMAPINFOHEADER*);
+u8* BITMAPINFOHEADERToByteBuffer(BMP_INFOHEADER*);
 void writeImage(Image*, const char*);
 Image allocateImage(u32, u32);
 

@@ -22,7 +22,7 @@ u8* BMPHeaderToByteBuffer(BMP_Header* header)
 //Way to put a header into a buffer without relying on packed structs
 //Which in this case would be gcc dependent
 //This way sucks...
-u8* BITMAPINFOHEADERToByteBuffer(BITMAPINFOHEADER* header)
+u8* BITMAPINFOHEADERToByteBuffer(BMP_INFOHEADER* header)
 {
   u8* buffer = (u8*)malloc(BITMAPINFOHEADER_PACKED_SIZE); //size of the packed header
   
@@ -50,7 +50,7 @@ void writeImage(Image* image, const char* file)
   u32 imageSize = image->width * image->height * bytesPerPixel;
   
   //generate info header
-  BITMAPINFOHEADER infoHeader = {};
+  BMP_INFOHEADER infoHeader = {};
   infoHeader.size = BITMAPINFOHEADER_PACKED_SIZE;
   infoHeader.width = image->width;
   infoHeader.height = image->height;

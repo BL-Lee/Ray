@@ -5,6 +5,7 @@
 #include "bitmap.cpp"
 #include "world.cpp"
 #include "camera.cpp"
+#include "timer.h"
 #include "ray.h"
 #include "Threads.h"
 
@@ -128,11 +129,11 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
       lane_f32 pixelYOffset = randomUnilateral32(&entropy)*camera->halfPixelHeight * 2.0f;
 
       lane_v3 filmPos = camera->filmCenter +
-	cameraY * filmY * (camera->halfFilmHeight + pixelYOffset) + 
-	cameraX * filmX * (camera->halfFilmWidth + pixelXOffset);
+		cameraY * filmY * (camera->halfFilmHeight + pixelYOffset) + 
+		cameraX * filmX * (camera->halfFilmWidth + pixelXOffset);
       
-      lane_v3 lensXOffset = randomBilateral32(&entropy) * camera->lensRadius * cameraX;
-      lane_v3 lensYOffset = randomBilateral32(&entropy) * camera->lensRadius * cameraY;
+      lane_v3 lensXOffset = cameraX * camera->lensRadius * randomBilateral32(&entropy);
+      lane_v3 lensYOffset = cameraY * randomBilateral32(&entropy) * camera->lensRadius;
             
       lane_v3 rayOrigin;
       rayOrigin = camera->pos + lensYOffset + lensXOffset;
@@ -147,110 +148,111 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
       attenuation = vec3{1.0f,1.0f,1.0f};//how much the colour changes from the bounced material
       //Each time, a ray can bounce this many times
       for (u32 bounceCount = 0; bounceCount < 8; bounceCount++)
-	{	  	  
-	  lane_f32 minDist;
-	  minDist = FLT_MAX;
-	  lane_u32 matIndex;
-	  matIndex = 0;
+		{	  	  
+		  lane_f32 minDist;
+		  minDist = FLT_MAX;
+		  lane_u32 matIndex;
+		  matIndex = 0;
       
-	  bouncesComputed += laneIncrement & laneMask;
+		  bouncesComputed += laneIncrement & laneMask;
 
-	  //iterate over all planes to see if they intersect
-	  for (u32 i = 0; i < world->planeCount; i++)
-	    {
-	      Plane plane = world->planes[i];
-	      lane_v3 planeNormal;
-	      planeNormal = plane.normal;
+		  //iterate over all planes to see if they intersect
+		  for (u32 i = 0; i < world->planeCount; i++)
+			{
+			  Plane plane = world->planes[i];
+			  lane_v3 planeNormal;
+			  planeNormal = plane.normal;
 	  
-	      lane_f32 denom = dot(planeNormal, rayDirection);
-	      lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
+			  lane_f32 denom = dot(planeNormal, rayDirection);
+			  lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
 
-	      //currently slightly faster without this condition
-	      //if (!MaskAllZeros(toleranceMask))
-		{
-		  lane_f32 planeDist;
-		  planeDist = plane.dist;
+			  //currently slightly faster without this condition
+			  //if (!MaskAllZeros(toleranceMask))
+			  {
+				lane_f32 planeDist;
+				planeDist = plane.dist;
 
-		  lane_f32 dist = (-planeDist - dot(planeNormal, rayOrigin)) / denom;
-		  lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
-		  lane_u32 hitMask = toleranceMask & distMask;
-		  if (!MaskAllZeros(hitMask))
-		    {
-		      lane_u32 planeMatIndex;
-		      planeMatIndex = plane.matIndex;
-		      ConditionalAssign(&minDist,      hitMask, dist);
-		      ConditionalAssign(&bounceNormal, hitMask, planeNormal);
-		      ConditionalAssign(&matIndex,     hitMask, planeMatIndex);
-		    }
-		}
-	    }
-	  //iterate over all spheres
-	  for (u32 i = 0; i < world->sphereCount; i++)
-	    {
-	      Sphere sphere = world->spheres[i];
+				lane_f32 dist = (-planeDist - dot(planeNormal, rayOrigin)) / denom;
+				lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
+				lane_u32 hitMask = toleranceMask & distMask;
+				if (!MaskAllZeros(hitMask))
+				  {
+					lane_u32 planeMatIndex;
+					planeMatIndex = plane.matIndex;
+					ConditionalAssign(&minDist,      hitMask, dist);
+					ConditionalAssign(&bounceNormal, hitMask, planeNormal);
+					ConditionalAssign(&matIndex,     hitMask, planeMatIndex);
+				  }
+			  }
+			}
+		  //iterate over all spheres
+		  for (u32 i = 0; i < world->sphereCount; i++)
+			{
+			  Sphere sphere = world->spheres[i];
 
-	      lane_v3 spherePos;
-	      spherePos = sphere.position;
-	      lane_f32 sphereRadius;
-	      sphereRadius = sphere.radius;
+			  lane_v3 spherePos;
+			  spherePos = sphere.position;
+			  lane_f32 sphereRadius;
+			  sphereRadius = sphere.radius;
 	  
-	      lane_v3 relativeSpherePos = rayOrigin - spherePos;
-	      lane_f32 a = dot(rayDirection, rayDirection);
-	      lane_f32 b = 2*dot(rayDirection, relativeSpherePos);
-	      lane_f32 c = dot(relativeSpherePos, relativeSpherePos) - sphereRadius * sphereRadius;
+			  lane_v3 relativeSpherePos = rayOrigin - spherePos;
+			  lane_f32 a = dot(rayDirection, rayDirection);
+			  lane_f32 b = 2*dot(rayDirection, relativeSpherePos);
+			  lane_f32 c = dot(relativeSpherePos, relativeSpherePos) - sphereRadius * sphereRadius;
 
-	      lane_f32 root = b*b - 4*a*c;
-	      lane_u32 rootMask = root > tolerance;	  
-	      if (!MaskAllZeros(rootMask))
-		{
-		//lane_f32 farDist = (-b + sqrt(root)) / 2*a;	      
-		  lane_f32 dist = (-b - sqrt(root)) / 2*a;
-		  lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
+			  lane_f32 root = b*b - 4*a*c;
+			  lane_u32 rootMask = root > tolerance;	  
+			  if (!MaskAllZeros(rootMask))
+				{
+				  //lane_f32 farDist = (-b + sqrt(root)) / 2*a;	      
+				  lane_f32 dist = (-b - sqrt(root)) / 2*a;
+				  lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
 
-		  lane_u32 hitMask = rootMask & distMask;
-		  if (!MaskAllZeros(hitMask))
-		    {
-		      lane_u32 sphereMatIndex;
-		      sphereMatIndex = sphere.matIndex;	  
-		      ConditionalAssign(&minDist,      hitMask, dist);
-		      ConditionalAssign(&bounceNormal, hitMask, normalize((rayOrigin + rayDirection * dist) - spherePos));	      
-		      ConditionalAssign(&matIndex,     hitMask, sphereMatIndex);
-		    }
-		}
-	    }
+				  lane_u32 hitMask = rootMask & distMask;
+				  if (!MaskAllZeros(hitMask))
+					{
+					  lane_u32 sphereMatIndex;
+					  sphereMatIndex = sphere.matIndex;	  
+					  ConditionalAssign(&minDist,      hitMask, dist);
+					  ConditionalAssign(&bounceNormal, hitMask, normalize((rayOrigin + rayDirection * dist) - spherePos));	      
+					  ConditionalAssign(&matIndex,     hitMask, sphereMatIndex);
+					}
+				}
+			}
 
-	  //Set the colour based on what we hit
-	  lane_v3 emitColour = maskLaneV3(gatherV3(world->materials, matIndex, emitColour), laneMask);
-	  laneMask = andNot((matIndex == laneU32FromU32(0)), laneMask);      
-	  resultColour += hadamard(emitColour, attenuation);
+		  //Set the colour based on what we hit
+		  lane_v3 emitColour = maskLaneV3(gatherV3(world->materials, matIndex, emitColour), laneMask);
+		  laneMask = andNot((matIndex == laneU32FromU32(0)), laneMask);      
+		  resultColour += hadamard(emitColour, attenuation);
 	  
-	  if (MaskAllZeros(laneMask))
-	    {
-	      break;
-	    }
-	  else
-	    {
-	      lane_v3 reflectColour = gatherV3(world->materials, matIndex, reflectColour);
-	      lane_f32 scatterScale = gatherF32(world->materials, matIndex, scatterScale);
+		  if (MaskAllZeros(laneMask))
+			{
+			  break;
+			}
+		  else
+			{
+			  lane_v3 reflectColour = gatherV3(world->materials, matIndex, reflectColour);
+			  lane_f32 scatterScale = gatherF32(world->materials, matIndex, scatterScale);
 
-	      //add any colour this object emits, times the attenuation
-	      //clamp to 0-inf
-	      lane_f32 cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0));
-	      //cosAttenuation = 1.0f;
+			  //add any colour this object emits, times the attenuation
+			  //clamp to 0-inf
+			  lane_f32 cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0));
+			  //cosAttenuation = 1.0f;
 	  
-	      //update attenuation based on reflection colour
-	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
+			  //update attenuation based on reflection colour
+			  attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
 
-	      //setup for next bounce
-	      rayOrigin = rayOrigin + rayDirection * minDist;
+			  //setup for next bounce
+			  rayOrigin = rayOrigin + rayDirection * minDist;
 	  
-	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);	      	    lane_f32 x = randomBilateral32(&entropy);
-	      lane_f32 y = randomBilateral32(&entropy);
-	      lane_f32 z = randomBilateral32(&entropy);	  
-	      lane_v3 randomBounce = normalize(bounceNormal + lane_v3{x,y,z});
-	      rayDirection = lerp(randomBounce, pureBounce,scatterScale);	  
-	    }
-	}      
+			  lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
+			  lane_f32 x = randomBilateral32(&entropy);
+			  lane_f32 y = randomBilateral32(&entropy);
+			  lane_f32 z = randomBilateral32(&entropy);	  
+			  lane_v3 randomBounce = normalize(bounceNormal + lane_v3{x,y,z});
+			  rayDirection = lerp(randomBounce, pureBounce,scatterScale);	  
+			}
+		}      
       finalColour += HorizontalAdd(resultColour);
     }
   LockedAdd(&world->bounceCount, HorizontalAdd(bouncesComputed));
@@ -276,7 +278,7 @@ int main(int argc, char** argv)
   u32 tileCountX = (image.width + tileWidth - 1) / tileWidth;
   u32 tileCountY = (image.height + tileHeight - 1) / tileHeight;
   world->totalTileCount = tileCountY * tileCountX;
-  u32 tilesCompleted = 0;
+  world->tilesCompleted = 0;
 
   WorkQueue queue = {};
   queue.totalOrders = world->totalTileCount;
@@ -319,14 +321,10 @@ int main(int argc, char** argv)
 	  order++;
 	}
     }
-
-  struct timespec start, finish;
-  double elapsed;
-
-  clock_gettime(CLOCK_MONOTONIC, &start);
-
-  u64 startTime = clock();
-  pthread_t threadIDs[coreCount-1];
+  Timer rayTimer;
+  startTimer(&rayTimer);
+  
+  u64* threadIDs = (u64*)malloc(sizeof(u64)* (coreCount - 1));
   //make the threads, dont use this core, its running the main program
   for (u32 coreThread = 1; coreThread < coreCount; coreThread++)
     {
@@ -349,14 +347,13 @@ int main(int argc, char** argv)
     }
   for (u32 coreThread = 1; coreThread < coreCount; coreThread++)
     {
-      JoinThread(threadIDs[coreThread-1], NULL);
+      JoinThread((void*)&threadIDs[coreThread-1], NULL);
     }
   printf("\n");
 
-  clock_gettime(CLOCK_MONOTONIC, &finish);
-  
-  elapsed = (finish.tv_sec - start.tv_sec) * 1000.0;
-  elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000.0;
+  endTimer(&rayTimer);
+  double elapsed = getTimeElapsedMS(&rayTimer);
+
   //finish up and print stats
   printf("Took %lfms\n", elapsed);
   printf("Total bounces: %llu\n", world->bounceCount);
@@ -368,7 +365,7 @@ int main(int argc, char** argv)
   free(image.pixels);
   free(world);
   free(camera);
-
+  free(threadIDs);
   
   return 0;
 }

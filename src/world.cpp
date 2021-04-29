@@ -54,6 +54,8 @@ World* initWorld()
   world->spheres[3].matIndex = 5;
   world->sphereCount = 4;
 
+  world->bounceCount = 0;
+
   return world;
 }
 
