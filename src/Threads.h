@@ -14,9 +14,9 @@ int32_t GetNumProcessors();
  #include <unistd.h>
 
 
- void CreateThread(pthread_t* id, void* (*routine)(void*), void* args, void* handle)
+ void CreateThread(uint64_t* id, void* (*routine)(void*), void* args)
  {
-   pthread_create(id, NULL, routine, args);
+   pthread_create((pthread_t*)id, NULL, routine, args);
  }
 
  void JoinThread(void* id, void** retval)

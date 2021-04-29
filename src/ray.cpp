@@ -9,46 +9,13 @@
 #include "ray.h"
 #include "Threads.h"
 
-#define RAYS_PER_PIXEL 512
+#ifndef RAYS_PER_PIXEL 
+ #define RAYS_PER_PIXEL 512
+#endif
+
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 
-#if 0
-#define CONSOLE_WIDTH 80
-#define CONSOLE_HEIGHT 24
-
-char screenBuffer[CONSOLE_HEIGHT * CONSOLE_WIDTH + 1];
-char greyScale[] = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
-
-
-int main(int argc, char** argv) {
-  //terminal ascii code for clearing the screen
-    puts("\x1b[2J");
-    while (1)
-      {
-      for (int i = 0; i < CONSOLE_WIDTH * CONSOLE_HEIGHT; i++)
-	{
-	  //for gradient
-	  double leftPercentage = (double)(i % (CONSOLE_WIDTH - 1)) / CONSOLE_WIDTH;
-	  double downPercentage = (double)(i / (CONSOLE_WIDTH - 1)) / CONSOLE_HEIGHT;
-	  int darkValue = ((leftPercentage + downPercentage) / 2) * 62;
-	 
-	  //Put line breaks on the edges
-	  if (i % CONSOLE_WIDTH == CONSOLE_WIDTH - 1)
-	    screenBuffer[i] = '\n';
-	  else
-	    screenBuffer[i] = greyScale[darkValue];
-	}
-      //Puts the cursor back at the top left
-      puts("\x1b[1;1H");
-      puts(screenBuffer);
-
-
-      //Later sleep for diff amount, currently: 1 second
-      sleep(1);
-      }
-}
-#endif
 
 void renderTile(World* world, Image image,
 		u32 minX, u32 onePastMaxX,
@@ -261,6 +228,16 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 
 int main(int argc, char** argv)
 {
+  const char* fileName;
+  if (argc > 1)
+    {
+      fileName = argv[1];
+    }
+  else
+    {
+      fileName = "out.bmp";
+    }
+  
   u32 coreCount = GetNumProcessors();
   //assert(coreCount > 0);
 
@@ -360,7 +337,7 @@ int main(int argc, char** argv)
   printf("Took %lfms per bounce\n",  (double)elapsed/ world->bounceCount);
   
   
-  writeImage(&image, "out.bmp");
+  writeImage(&image, fileName);
   
   free(image.pixels);
   free(world);

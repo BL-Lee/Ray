@@ -10,15 +10,14 @@ typedef struct _Timer
   struct timespec timer_start, timer_finish;
 }Timer;
 
-struct timespec timer_start, timer_finish;
 
 void startTimer(Timer* t)
 {
-  clock_gettime(CLOCK_MONOTONIC, &timer_start);
+  clock_gettime(CLOCK_MONOTONIC, &t->timer_start);
 }
 void endTimer(Timer* t)
 {
-  clock_gettime(CLOCK_MONOTONIC, &timer_finish);  
+  clock_gettime(CLOCK_MONOTONIC, &t->timer_finish);  
 }
 double getTimeElapsedMS(Timer* t)
 {
