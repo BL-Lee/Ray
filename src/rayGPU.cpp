@@ -7,7 +7,9 @@
 #include "ray.h"
 #include "OpenCL.cpp"
 
-#define RAYS_PER_PIXEL 512
+#ifndef RAYS_PER_PIXEL
+ #define RAYS_PER_PIXEL 512
+#endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 

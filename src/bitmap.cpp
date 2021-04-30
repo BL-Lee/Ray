@@ -40,6 +40,13 @@ u8* BITMAPINFOHEADERToByteBuffer(BMP_INFOHEADER* header)
   
   return buffer;
 }
+/*
+Image loadImage(const char* file)
+{
+  FILE* filehandle = fopen(file, "rb");
+  BMP_INFOHEADER infoHeader;
+  fread(&infoHeader, sizeof(BMP_INFOHEADER), 
+  }*/
 
 void writeImage(Image* image, const char* file)
 {
