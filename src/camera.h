@@ -2,6 +2,36 @@
 #define __CAMERA_HEADER
 
 #ifdef __USE_OPENCL
+ #ifdef _MSC_VER
+  #pragma pack(push, 1)
+typedef struct
+{
+  vec3 pos;
+  float pad1;//wowwwwwww
+  vec3 target;
+  float pad2;
+  vec3 Z;
+  float pad3;
+  vec3 X;
+  float pad4;
+  vec3 Y;
+  float pad5;
+
+  vec3 filmCenter;
+  float pad6;
+  f32 focusDist;
+  f32 filmWidth;
+  f32 filmHeight;
+
+  f32 halfFilmWidth;
+  f32 halfFilmHeight;
+  f32 halfPixelWidth;
+  f32 halfPixelHeight;
+
+  f32 lensRadius;
+}Camera;
+  #pragma pack(pop)
+#else
 typedef struct __attribute__((packed))
 {
   vec3 pos;
@@ -28,7 +58,7 @@ typedef struct __attribute__((packed))
 
   f32 lensRadius;
 }Camera;
-
+#endif//_MSC_VER
 #else
 typedef struct _Camera
 {

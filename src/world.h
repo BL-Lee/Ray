@@ -7,6 +7,51 @@
 
 #include "Math.h"
 #ifdef __USE_OPENCL
+
+#if defined(_MSC_VER) // sould actually be msvc
+#pragma pack(push,1)
+//OpenCL structs
+typedef struct 
+{
+  vec3 position;
+  float pad; //TODO: figure out better way for padding for opencl's coversion of float3 to float4
+  f32 radius;
+  s32 matIndex;
+}Sphere;
+
+typedef struct 
+{ 
+  vec3 normal;
+  float pad;
+  f32 dist; //distance along normal
+  s32 matIndex;
+}Plane;
+
+typedef struct 
+{
+  vec3 emitColour;
+  float pad1;  
+  vec3 reflectColour;
+  float pad2;
+  f32 scatterScale;
+}Material;
+
+
+typedef struct 
+{
+  Plane planes[WORLD_PLANE_COUNT];
+  Sphere spheres[WORLD_SPHERE_COUNT];
+  Material materials[WORLD_MATERIAL_COUNT];
+  volatile u32 bounceCount;
+  s32 planeCount;
+  s32 sphereCount;
+  s32 materialCount;
+  u32 totalTileCount;
+}World;
+#pragma pack(pop)
+
+
+#elif defined(unix) || defined(__unix__) || defined(__unix) || defined(__APPLE__)//should really be gnu compiler
 //OpenCL structs
 typedef struct __attribute__((packed))
 {
@@ -46,6 +91,7 @@ typedef struct  __attribute__((packed))
   u32 totalTileCount;
 }World;
 
+#endif
 
 #else
 #include "SIMD.h"
