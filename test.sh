@@ -3,7 +3,7 @@
 echo "Building..."
 
 declare -a laneWidths=("8" "4" "1")
-for i in $laneWidths
+for i in ${laneWidths[@]}
 do
     if ! g++ -DRAYS_PER_PIXEL=64 -DLANE_WIDTH=$i -lpthread -mavx2 -O2 --std=c++11 src/ray.cpp -o test/ray$i; then
 	echo "There were errors in build for lane width of $i."

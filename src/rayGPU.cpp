@@ -8,7 +8,7 @@
 #include "OpenCL.cpp"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 512
+ #define RAYS_PER_PIXEL 1
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720

@@ -7,7 +7,7 @@ World* initWorld()
   World* world = (World*)malloc(sizeof(World));
   world->materials[0] = {};
   world->materials[0].reflectColour = {};
-  world->materials[0].emitColour = { 1.0f, 1.0f, 1.0f };
+  world->materials[0].emitColour = { 0.8f, 0.50f, 0.3f };
   
   world->materials[1] = {};
   world->materials[1].reflectColour = { 0.8f, 0.7f, 0.2f };
@@ -17,7 +17,7 @@ World* initWorld()
   world->materials[2].reflectColour = { 0.0f, 0.2f, 1.0f };
   world->materials[2].scatterScale = 0.7;
 
-  world->materials[3].emitColour = {99.0f,0.0f,0.0f};
+  world->materials[3].emitColour = {99.0f,99.0f,99.0f};
   world->materials[3].reflectColour = { 0.0f, 0.0f, 0.0f };
   world->materials[3].scatterScale = 1;
     
@@ -50,8 +50,10 @@ World* initWorld()
   world->spheres[2].matIndex = 3;
   
   world->spheres[3].position = { 2.0f, 10.0f, 6.0f };
-  world->spheres[3].radius = 2.0f;
+  world->spheres[3].radius = 1.0f;
   world->spheres[3].matIndex = 5;
+
+
   world->sphereCount = 4;
 
   world->bounceCount = 0;
