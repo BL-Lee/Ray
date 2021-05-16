@@ -192,6 +192,76 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 		}
 	    }
 
+	  for (u32 i = 0; i < world->triangleCount; i++)	    
+	    {
+	      Triangle triangle = world->triangles[i];
+
+	      lane_v3 v0;
+	      lane_v3 v1;
+	      lane_v3 v2;
+	      lane_v3 normal;
+	      v0 = triangle.v0;
+	      v1 = triangle.v1;
+	      v2 = triangle.v2;
+	      //normal = triangle.normal;
+	      normal = normalize(cross(v1-v0, v2-v0)) * -1.0f;
+	      
+	      lane_f32 denom = dot(normal, rayDirection);
+	      lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+	      //currently slightly faster without this condition
+	      //if (!MaskAllZeros(toleranceMask))
+	      {
+		lane_f32 triangleOffset; //like the planeDist but for the triangle
+		triangleOffset = dot(normal, v0);
+		lane_f32 triangleDist;
+		triangleDist = (-dot(normal, rayOrigin) - triangleOffset) / denom; 
+		
+		lane_u32 planeHitMask;
+		planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+		//if (!MaskAllZeros(planeHitMask))
+		{
+
+		  //matIndex = 3;
+		  
+		  lane_u32 triangleHitMask;
+		  triangleHitMask = 0xFFFFFFFF;
+		  
+		  lane_v3 planePoint;
+		  planePoint = (rayDirection * triangleDist) + rayOrigin;
+
+		  lane_v3 edgePerp;
+		  
+		  lane_v3 edge0 = v1 - v0;
+		  edgePerp = cross(edge0, planePoint - v0);
+		  triangleHitMask &= dot(normal, edgePerp) < laneF32FromF32(0.0f);
+
+		  lane_v3 edge1 = v2 - v1;
+		  edgePerp = cross(edge1, planePoint - v1);
+		  triangleHitMask &= dot(normal, edgePerp) < laneF32FromF32(0.0f);
+
+
+		  lane_v3 edge2 = v0 - v2;
+		  edgePerp = cross(edge2, planePoint - v2);
+		  triangleHitMask &= dot(normal, edgePerp) < laneF32FromF32(0.0f);
+
+
+		  lane_u32 hitMask = triangleHitMask & planeHitMask;
+		  					 
+		  if (!MaskAllZeros(hitMask))
+		    {
+		      lane_u32 triangleMatIndex;
+		      triangleMatIndex = triangle.matIndex;
+		      ConditionalAssign(&minDist,      hitMask, triangleDist);
+		      ConditionalAssign(&bounceNormal, hitMask, normal);
+		      ConditionalAssign(&matIndex,     hitMask, triangleMatIndex);
+		    }
+		}
+	      }
+	
+	      
+	      
+	    }
 	  //Set the colour based on what we hit
 	  lane_v3 emitColour = maskLaneV3(gatherV3(world->materials, matIndex, emitColour), laneMask);
 	  laneMask = andNot((matIndex == laneU32FromU32(0)), laneMask);      
@@ -216,7 +286,8 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 
 	      //add any colour this object emits, times the attenuation
 	      //clamp to 0-inf
-	      lane_f32 cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0));
+	      //totally arbirary 0.4 right now, i just didnt like it at 0
+	      lane_f32 cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0.4));
 	      //cosAttenuation = 1.0f;
 	  
 	      //update attenuation based on reflection colour

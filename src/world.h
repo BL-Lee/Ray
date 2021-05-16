@@ -4,11 +4,12 @@
 #define WORLD_SPHERE_COUNT 8
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
+#define WORLD_TRIANGLE_COUNT 8
 
 #include "Math.h"
 #ifdef __USE_OPENCL
 
-#if defined(_MSC_VER) // sould actually be msvc
+#if defined(_MSC_VER) 
 #pragma pack(push,1)
 //OpenCL structs
 typedef struct 
@@ -27,6 +28,19 @@ typedef struct
   s32 matIndex;
 }Plane;
 
+typedef struct _Triangle
+{
+  vec3 v0;
+  float pad1;  
+  vec3 v1;
+  float pad2;
+  vec3 v2;
+  float pad3;
+  vec3 normal;
+  float pad4;
+  int matIndex;
+}Triangle;
+
 typedef struct 
 {
   vec3 emitColour;
@@ -42,10 +56,12 @@ typedef struct
   Plane planes[WORLD_PLANE_COUNT];
   Sphere spheres[WORLD_SPHERE_COUNT];
   Material materials[WORLD_MATERIAL_COUNT];
+  Triangle triangles[WORLD_TRIANGLE_COUNT];
   volatile u32 bounceCount;
   s32 planeCount;
   s32 sphereCount;
   s32 materialCount;
+  S32 triangleCount;
   u32 totalTileCount;
 }World;
 #pragma pack(pop)
@@ -69,6 +85,20 @@ typedef struct __attribute__((packed))
   s32 matIndex;
 }Plane;
 
+typedef struct __attribute__((packed))
+{
+  vec3 v0;
+  float pad0;
+  vec3 v1;
+  float pad1;
+  vec3 v2;
+  float pad2;
+  vec3 normal;
+  float pad3;
+  int matIndex;
+}Triangle;
+
+
 typedef struct  __attribute__((packed))
 {
   vec3 emitColour;
@@ -84,10 +114,12 @@ typedef struct  __attribute__((packed))
   Plane planes[WORLD_PLANE_COUNT];
   Sphere spheres[WORLD_SPHERE_COUNT];
   Material materials[WORLD_MATERIAL_COUNT];
+  Triangle triangles[WORLD_TRIANGLE_COUNT];
   volatile u32 bounceCount;
   s32 planeCount;
   s32 sphereCount;
   s32 materialCount;
+  s32 triangleCount;
   u32 totalTileCount;
 }World;
 
@@ -112,6 +144,15 @@ typedef struct _Plane
   int matIndex;
 }Plane;
 
+typedef struct _Triangle
+{
+  vec3 v0;
+  vec3 v1;
+  vec3 v2;
+  vec3 normal;
+  int matIndex;
+}Triangle;
+
 typedef struct _Material
 {
   float scatterScale;
@@ -125,9 +166,11 @@ typedef struct _World
   Plane planes[WORLD_PLANE_COUNT];
   Sphere spheres[WORLD_SPHERE_COUNT];
   Material materials[WORLD_MATERIAL_COUNT];
+  Triangle triangles[WORLD_TRIANGLE_COUNT];
   int planeCount;  
   int sphereCount;
   int materialCount;
+  int triangleCount;
   u32 totalTileCount;
   volatile u64 bounceCount;
   volatile u64 tilesCompleted;
@@ -140,6 +183,6 @@ World* initWorld();
 void addSphereToWorld(World* world, Sphere* sphere);
 void addPlaneToWorld(World* world, Plane* plane);
 void addMaterialToWorld(World* world, Material* mat);
-
+void addTriangleToWorld(World* world, Triangle* triangle);
 
 #endif //__WORLD_HEADER

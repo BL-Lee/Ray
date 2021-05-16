@@ -13,6 +13,16 @@ typedef struct __attribute__((packed))_clPlane
   int matIndex;
 }clPlane;
 
+typedef struct __attribute__((packed))_clTriangle
+{
+  float3 v0;
+  float3 v1;
+  float3 v2;
+  float3 normal;
+  int matIndex;
+}clTriangle;
+
+
 typedef struct __attribute__((packed))_clMaterial
 {
   float3 emitColour;
@@ -25,10 +35,12 @@ typedef struct __attribute__((packed))_clWorld
   clPlane planes[8];
   clSphere spheres[8];
   clMaterial materials[8];
+  clTriangle triangles[8];
   volatile uint bounceCount;
   int planeCount;
   int sphereCount;
   int materialCount;
+  int triangleCount;
   uint totalTileCount;
 }clWorld;
 
@@ -193,6 +205,63 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
 		    }
 		}
 	    }
+          for (int i = 0; i < world->triangleCount; i++)	    
+	    {
+	      clTriangle triangle = world->triangles[i];
+
+
+	      float3 v0 = triangle.v0;
+	      float3 v1 = triangle.v1;
+	      float3 v2 = triangle.v2;
+	      //v2 = triangle.normal;
+	      float3 normal = -normalize(cross(v1-v0, v2-v0));
+	      
+	      float denom = dot(normal, rayDirection);
+	      uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+	      //if (toleranceMask)
+	      {
+		float triangleOffset; //like the planeDist but for the triangle
+		triangleOffset = dot(normal, v0);
+		float triangleDist;
+		triangleDist = (-dot(normal, rayOrigin) - triangleOffset) / denom; 
+		
+		uint planeHitMask;
+		planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+		if (planeHitMask)
+		{
+		  uint triangleHitMask;
+		  triangleHitMask = 0x1;
+		  
+		  float3 planePoint;
+		  planePoint = (rayDirection * triangleDist) + rayOrigin;
+
+		  float3 edgePerp;
+		  
+		  float3 edge0 = v1 - v0;
+		  edgePerp = cross(edge0, planePoint - v0);
+		  triangleHitMask &= dot(normal, edgePerp) < 0.0;
+
+		  float3 edge1 = v2 - v1;
+		  edgePerp = cross(edge1, planePoint - v1);
+		  triangleHitMask &= dot(normal, edgePerp) < 0.0;
+
+		  float3 edge2 = v0 - v2;
+		  edgePerp = cross(edge2, planePoint - v2);
+		  triangleHitMask &= dot(normal, edgePerp) < 0.0;
+
+		  uint hitMask = triangleHitMask && planeHitMask;
+		  					 
+		  if (hitMask)
+		    {
+                      minDist = triangleDist;
+                      bounceNormal = normal;
+                      matIndex = triangle.matIndex;
+		    }
+		}
+	      }
+	    }
+
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something
 	  resultColour += mat.emitColour * attenuation; // does hadamard product
@@ -204,7 +273,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
 	    {
 	      //add any colour this object emits, times the attenuation
 	      //clamp to 0-inf
-	      float cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), 0);
+	      float cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), 0.4);
 
 	     
 	      //update attenuation based on reflection colour

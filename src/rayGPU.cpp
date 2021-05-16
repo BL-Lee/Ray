@@ -8,7 +8,7 @@
 #include "OpenCL.cpp"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 1
+ #define RAYS_PER_PIXEL 1024
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -37,6 +37,17 @@ char* loadKernelProgram(const char* filePath)
 
 int main(int argc, char** argv)
 {
+
+  const char* fileName;
+  if (argc > 1)
+    {
+      fileName = argv[1];
+    }
+  else
+    {
+      fileName = "out.bmp";
+    }
+
   //Image setup
   Image image = allocateImage(IMAGE_WIDTH, IMAGE_HEIGHT);
   u32* out = image.pixels;
@@ -128,7 +139,7 @@ int main(int argc, char** argv)
   printf("Total bounces: %d\n", world->bounceCount);
   printf("Took %lfms per bounce\n",  (double)elapsed/ world->bounceCount);
   
-  writeImage(&image, "outGPU.bmp");
+  writeImage(&image, fileName);
   
   clReleaseMemObject(clWorld);
   clReleaseMemObject(clCamera);

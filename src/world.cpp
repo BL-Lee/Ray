@@ -52,6 +52,14 @@ World* initWorld()
   world->spheres[3].position = { 2.0f, 10.0f, 6.0f };
   world->spheres[3].radius = 1.0f;
   world->spheres[3].matIndex = 5;
+  
+  //triangles
+  world->triangles[0].normal = { 0.0f, 0.0f, 1.0f };
+  world->triangles[0].v0 = { 0.0, 0.0, 0.0 };
+  world->triangles[0].v1 = { -2.0, 1.0, 2.0 };
+  world->triangles[0].v2 = { 2.0, 10.0, 6.0 };
+  world->triangles[0].matIndex = 2;
+  world->triangleCount = 1;
 
 
   world->sphereCount = 4;
