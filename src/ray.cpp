@@ -9,6 +9,8 @@
 #include "timer.h"
 #include "ray.h"
 #include "Threads.h"
+#include "STL.cpp"
+
 
 #ifndef RAYS_PER_PIXEL 
  #define RAYS_PER_PIXEL 512
@@ -204,7 +206,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 	      v1 = triangle.v1;
 	      v2 = triangle.v2;
 	      //normal = triangle.normal;
-	      normal = normalize(cross(v1-v0, v2-v0)) * -1.0f;
+	      normal = normalize(cross(v1-v0, v2-v0));
 	      
 	      lane_f32 denom = dot(normal, rayDirection);
 	      lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
@@ -213,9 +215,9 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 	      //if (!MaskAllZeros(toleranceMask))
 	      {
 		lane_f32 triangleOffset; //like the planeDist but for the triangle
-		triangleOffset = dot(normal, v0);
+		triangleOffset = -dot(normal, v0);
 		lane_f32 triangleDist;
-		triangleDist = (-dot(normal, rayOrigin) - triangleOffset) / denom; 
+		triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
 		
 		lane_u32 planeHitMask;
 		planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
@@ -234,16 +236,16 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 		  
 		  lane_v3 edge0 = v1 - v0;
 		  edgePerp = cross(edge0, planePoint - v0);
-		  triangleHitMask &= dot(normal, edgePerp) < laneF32FromF32(0.0f);
+		  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
 
 		  lane_v3 edge1 = v2 - v1;
 		  edgePerp = cross(edge1, planePoint - v1);
-		  triangleHitMask &= dot(normal, edgePerp) < laneF32FromF32(0.0f);
+		  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
 
 
 		  lane_v3 edge2 = v0 - v2;
 		  edgePerp = cross(edge2, planePoint - v2);
-		  triangleHitMask &= dot(normal, edgePerp) < laneF32FromF32(0.0f);
+		  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
 
 
 		  lane_u32 hitMask = triangleHitMask & planeHitMask;
@@ -342,6 +344,7 @@ int main(int argc, char** argv)
   u32* out = image.pixels;
   
   World* world = initWorld();
+  loadSTLShape(world, "assets/models/Dodecahedron.stl");
   Camera* camera = initCamera(image);
   
   //split into tiles

@@ -4,7 +4,7 @@
 #define WORLD_SPHERE_COUNT 8
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
-#define WORLD_TRIANGLE_COUNT 8
+#define WORLD_TRIANGLE_COUNT 64
 
 #include "Math.h"
 #ifdef __USE_OPENCL

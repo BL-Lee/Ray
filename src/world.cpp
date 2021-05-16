@@ -34,10 +34,10 @@ World* initWorld()
   world->planes[0].normal = { 0.0f, 0.0f, 1.0f };
   world->planes[0].dist = 0.0f;
   world->planes[0].matIndex = 1;
-  world->planeCount = 1;
+  world->planeCount = 0;
 
   //spheres
-  world->spheres[0].position = { 0.0f, 0.0f, 0.0f };
+  world->spheres[0].position = { 8.0f, 8.0f, 0.0f };
   world->spheres[0].radius = 1.0f;
   world->spheres[0].matIndex = 2;
 
@@ -59,6 +59,45 @@ World* initWorld()
   world->triangles[0].v1 = { -2.0, 1.0, 2.0 };
   world->triangles[0].v2 = { 2.0, 10.0, 6.0 };
   world->triangles[0].matIndex = 2;
+  
+  world->triangles[1].normal = { 0.0f, 0.0f, 1.0f };
+  world->triangles[1].v0 = { 0.0, 0.0, 0.0 };
+  world->triangles[1].v1 = { 1.0, 0.0, 0.0 };
+  world->triangles[1].v2 = { 1.0, 1.0, 0.0 };
+  world->triangles[1].matIndex = 2;
+
+  /*
+  world->triangles[2].normal = { 0.0f, 0.0f, 1.0f };
+  world->triangles[2].v0 = { 0.0, 0.0, 0.0 };
+  world->triangles[2].v1 = { 1.0, 1.0, 0.0 };
+  world->triangles[2].v2 = { 0.0, 1.0, 0.0 };
+  world->triangles[2].matIndex = 2;
+
+  world->triangles[3].normal = { 0.0f, 0.0f, 1.0f };
+  world->triangles[3].v0 = { 0.0, 0.0, 0.0 };
+  world->triangles[3].v1 = { 0.0, 1.0, 0.0 };
+  world->triangles[3].v2 = { 0.0, 1.0, 1.0 };
+  world->triangles[3].matIndex = 2;
+
+  world->triangles[4].normal = { 0.0f, 0.0f, 1.0f };
+  world->triangles[4].v0 = { 0.0, 0.0, 0.0 };
+  world->triangles[4].v1 = { 0.0, 1.0, 1.0 };
+  world->triangles[4].v2 = { 0.0, 0.0, 1.0 };
+  world->triangles[4].matIndex = 2;
+
+  world->triangles[5].normal = { 0.0f, 0.0f, 1.0f };
+  world->triangles[5].v0 = { -1.0, 0.0, 0.0 };
+  world->triangles[5].v1 = { -1.0, 1.0, 0.0 };
+  world->triangles[5].v2 = { -1.0, 1.0, 1.0 };
+  world->triangles[5].matIndex = 2;
+
+  world->triangles[6].normal = { 0.0f, 0.0f, 1.0f };
+  world->triangles[6].v0 = { -1.0, 0.0, 0.0 };
+  world->triangles[6].v1 = { -1.0, 1.0, 1.0 };
+  world->triangles[6].v2 = { -1.0, 0.0, 1.0 };
+  world->triangles[6].matIndex = 2;
+  */
+  
   world->triangleCount = 1;
 
 
@@ -72,3 +111,9 @@ World* initWorld()
 void addSphereToWorld(World* world, Sphere* sphere);
 void addPlaneToWorld(World* world, Plane* plane);
 void addMaterialToWorld(World* world, Material* mat);
+void addTriangleToWorld(World* world, Triangle* triangle)
+{
+  Triangle* place = &(world->triangles[world->triangleCount]);
+  memcpy(place, triangle, sizeof(Triangle));
+  world->triangleCount++;
+}

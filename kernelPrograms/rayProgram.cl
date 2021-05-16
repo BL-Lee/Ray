@@ -1,4 +1,9 @@
 
+#define WORLD_SPHERE_COUNT 8
+#define WORLD_PLANE_COUNT 8
+#define WORLD_MATERIAL_COUNT 8
+#define WORLD_TRIANGLE_COUNT 64
+
 typedef struct __attribute__((packed))_clSphere
 {
   float3 position;
@@ -35,7 +40,7 @@ typedef struct __attribute__((packed))_clWorld
   clPlane planes[8];
   clSphere spheres[8];
   clMaterial materials[8];
-  clTriangle triangles[8];
+  clTriangle triangles[64];
   volatile uint bounceCount;
   int planeCount;
   int sphereCount;
@@ -214,7 +219,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
 	      float3 v1 = triangle.v1;
 	      float3 v2 = triangle.v2;
 	      //v2 = triangle.normal;
-	      float3 normal = -normalize(cross(v1-v0, v2-v0));
+	      float3 normal = normalize(cross(v1-v0, v2-v0));
 	      
 	      float denom = dot(normal, rayDirection);
 	      uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
@@ -222,9 +227,9 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
 	      //if (toleranceMask)
 	      {
 		float triangleOffset; //like the planeDist but for the triangle
-		triangleOffset = dot(normal, v0);
+		triangleOffset = -dot(normal, v0);
 		float triangleDist;
-		triangleDist = (-dot(normal, rayOrigin) - triangleOffset) / denom; 
+		triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
 		
 		uint planeHitMask;
 		planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
@@ -240,15 +245,15 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
 		  
 		  float3 edge0 = v1 - v0;
 		  edgePerp = cross(edge0, planePoint - v0);
-		  triangleHitMask &= dot(normal, edgePerp) < 0.0;
+		  triangleHitMask &= dot(normal, edgePerp) > 0.0;
 
 		  float3 edge1 = v2 - v1;
 		  edgePerp = cross(edge1, planePoint - v1);
-		  triangleHitMask &= dot(normal, edgePerp) < 0.0;
+		  triangleHitMask &= dot(normal, edgePerp) > 0.0;
 
 		  float3 edge2 = v0 - v2;
 		  edgePerp = cross(edge2, planePoint - v2);
-		  triangleHitMask &= dot(normal, edgePerp) < 0.0;
+		  triangleHitMask &= dot(normal, edgePerp) > 0.0;
 
 		  uint hitMask = triangleHitMask && planeHitMask;
 		  					 

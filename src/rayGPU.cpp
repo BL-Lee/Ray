@@ -6,6 +6,7 @@
 #include "camera.cpp"
 #include "ray.h"
 #include "OpenCL.cpp"
+#include "STL.cpp"
 
 #ifndef RAYS_PER_PIXEL
  #define RAYS_PER_PIXEL 1024
@@ -53,6 +54,7 @@ int main(int argc, char** argv)
   u32* out = image.pixels;
 
   World* world = initWorld();
+  loadSTLShape(world, "assets/models/Dodecahedron.stl");
   Camera* camera = initCamera(image);
   
   size_t globalWorkSize[2] = {image.width, image.height};
