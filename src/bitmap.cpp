@@ -40,20 +40,29 @@ u8* BITMAPINFOHEADERToByteBuffer(BMP_INFOHEADER* header)
   
   return buffer;
 }
-/*
-Image loadImage(const char* file)
+
+Image* loadImage(const char* file)
 {
-  FILE* filehandle = fopen(file, "rb");
+  FILE* fileHandle = fopen(file, "rb");
+  BMP_Header header;
+  fread(&header, sizeof(BMP_Header), 1, fileHandle);
   BMP_INFOHEADER infoHeader;
-  fread(&infoHeader, sizeof(BMP_INFOHEADER), 
-  }*/
+  fread(&infoHeader, sizeof(BMP_INFOHEADER), 1, fileHandle);
+  Image* image = (Image*)malloc(sizeof(Image));
+  image->width = infoHeader.width;
+  image->height = infoHeader.height;
+  image->pixels = (u32*)malloc(image->width * image->height * sizeof(u32));
+  fread(image->pixels, sizeof(u32), (header.size - sizeof(BMP_Header) - sizeof(BMP_INFOHEADER)) / sizeof(u32), fileHandle);
+  return image;
+  
+}
 
 void writeImage(Image* image, const char* file)
 {
   //Note (ben): currently set to RGBA
   u32 bitsPerPixel = 32;
   u16 bytesPerPixel = 4;
-  
+
   u32 imageSize = image->width * image->height * bytesPerPixel;
   
   //generate info header
@@ -70,7 +79,7 @@ void writeImage(Image* image, const char* file)
   infoHeader.colourPaletteSize = 0;
   infoHeader.importantColours = 0;
   
-  u8* infoBuffer = BITMAPINFOHEADERToByteBuffer(&infoHeader);
+  //u8* infoBuffer = BITMAPINFOHEADERToByteBuffer(&infoHeader);
 
   //generate header
   BMP_Header header = {};
@@ -80,16 +89,16 @@ void writeImage(Image* image, const char* file)
   header.res2 = 0;
   header.offset = BMP_HEADER_PACKED_SIZE + BITMAPINFOHEADER_PACKED_SIZE;
   
-  u8* headerBuffer = BMPHeaderToByteBuffer(&header);
+  //u8* headerBuffer = BMPHeaderToByteBuffer(&header);
 
   //write file
   FILE *fileHandle = fopen(file,"wb");
-  fwrite(headerBuffer, BMP_HEADER_PACKED_SIZE, 1, fileHandle);
-  fwrite(infoBuffer, BITMAPINFOHEADER_PACKED_SIZE, 1, fileHandle);
+  fwrite(&header, BMP_HEADER_PACKED_SIZE, 1, fileHandle);
+  fwrite(&infoHeader, BITMAPINFOHEADER_PACKED_SIZE, 1, fileHandle);
   fwrite(image->pixels, bytesPerPixel, image->height * image->width, fileHandle);
 
-  free(headerBuffer);
-  free(infoBuffer);
+  //free(headerBuffer);
+  //free(infoBuffer);
   
   fclose(fileHandle);
 }

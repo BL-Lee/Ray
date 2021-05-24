@@ -491,6 +491,12 @@ inline vec3 normalize(vec3 a)
   result = a / length(a);
   return result;
 }
+inline vec2 normalize(vec2 a)
+{
+  vec2 result;
+  result = a / length(a);
+  return result;
+}
 
 /* Misc */
 

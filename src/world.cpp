@@ -17,7 +17,7 @@ World* initWorld()
   world->materials[2].reflectColour = { 0.0f, 0.2f, 1.0f };
   world->materials[2].scatterScale = 0.7;
 
-  world->materials[3].emitColour = {99.0f,99.0f,99.0f};
+  world->materials[3].emitColour = {99.0f,1.0f,99.0f};
   world->materials[3].reflectColour = { 0.0f, 0.0f, 0.0f };
   world->materials[3].scatterScale = 1;
     
@@ -34,7 +34,7 @@ World* initWorld()
   world->planes[0].normal = { 0.0f, 0.0f, 1.0f };
   world->planes[0].dist = 0.0f;
   world->planes[0].matIndex = 1;
-  world->planeCount = 0;
+  world->planeCount = 1;
 
   //spheres
   world->spheres[0].position = { 8.0f, 8.0f, 0.0f };

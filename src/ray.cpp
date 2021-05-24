@@ -10,7 +10,7 @@
 #include "ray.h"
 #include "Threads.h"
 #include "STL.cpp"
-
+#include "BlueNoise.cpp"
 
 #ifndef RAYS_PER_PIXEL 
  #define RAYS_PER_PIXEL 512
@@ -19,7 +19,8 @@
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 
-u16* shapeMask = (u16*)malloc(sizeof(u16)*IMAGE_HEIGHT*IMAGE_WIDTH);
+//u16* shapeMask = (u16*)malloc(sizeof(u16)*IMAGE_HEIGHT*IMAGE_WIDTH);
+Image* blueNoise;
 
 void renderTile(World* world, Image image,
 		u32 minX, u32 onePastMaxX,
@@ -34,7 +35,7 @@ void renderTile(World* world, Image image,
 	{
 	  lane_f32 filmX = laneF32FromF32(-1.0f + (2.0f * (f32)x / (f32)image.width));
 	
-	  vec3 colour = rayTrace(world, camera, filmY, filmX, sampleCount, &shapeMask[y*image.width+x]);	  
+	  vec3 colour = rayTrace(world, camera, filmY, filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);	  
 	  colour = linearToSRGB(colour);
 	  
 	  u32 bitmapColour = packRGBAtoARGB({ colour.x, colour.y, colour.z, 1.0f });
@@ -66,7 +67,7 @@ void* threadProc(void* args)
 }
 
 
-vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32 sampleCount, u16* maskPtr)
+vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32 sampleCount, u32 screenX, u32 screenY)//, u16* maskPtr)
 {
   //initialize tolerances and colours
   vec3 finalColour = {};
@@ -90,7 +91,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
   lane_v3 cameraX = laneV3FromV3(camera->X);
   lane_v3 cameraY = laneV3FromV3(camera->Y);
 
-  
+  u32 timesUsed = 0;
   lane_u32 bouncesComputed = laneU32FromU32(0);
   for (u32 rayIndex = 0; rayIndex < rayCount; rayIndex++)
     {
@@ -98,14 +99,14 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
       //setup for this ray
       lane_f32 pixelXOffset = randomUnilateral32(&entropy)*camera->halfPixelWidth * 2.0f;
       lane_f32 pixelYOffset = randomUnilateral32(&entropy)*camera->halfPixelHeight * 2.0f;
-
+      
       lane_v3 filmPos = camera->filmCenter +
 	cameraY * filmY * (camera->halfFilmHeight + pixelYOffset) + 
 	cameraX * filmX * (camera->halfFilmWidth + pixelXOffset);
-      
+
       lane_v3 lensXOffset = cameraX * camera->lensRadius * randomBilateral32(&entropy);
       lane_v3 lensYOffset = cameraY * randomBilateral32(&entropy) * camera->lensRadius;
-            
+                  
       lane_v3 rayOrigin;
       rayOrigin = camera->pos + lensYOffset + lensXOffset;
       lane_v3 rayDirection;
@@ -221,7 +222,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 		
 		lane_u32 planeHitMask;
 		planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
-		//if (!MaskAllZeros(planeHitMask))
+		if (!MaskAllZeros(planeHitMask))
 		{
 
 		  //matIndex = 3;
@@ -290,7 +291,6 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 	      //clamp to 0-inf
 	      //totally arbirary 0.4 right now, i just didnt like it at 0
 	      lane_f32 cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0.4));
-	      //cosAttenuation = 1.0f;
 	  
 	      //update attenuation based on reflection colour
 	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
@@ -299,6 +299,12 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 	      rayOrigin = rayOrigin + rayDirection * minDist;
 	  
 	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
+	      /*
+	      vec3 tempBounce;
+	      tempBounce.x = sampleXorThing(screenX, screenY, rayIndex, 0);
+	      tempBounce.y = sampleXorThing(screenX, screenY, rayIndex, 1);
+	      tempBounce.z = sampleXorThing(screenX, screenY, rayIndex, 2);
+	      */
 	      lane_f32 x = randomBilateral32(&entropy);
 	      lane_f32 y = randomBilateral32(&entropy);
 	      lane_f32 z = randomBilateral32(&entropy);	  
@@ -316,16 +322,8 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32
 
 int main(int argc, char** argv)
 {
-  /*
-  {
-  FILE* f = fopen("../textures/raw64_64_rgba", "rb");
-  Image image = allocateImage(
-  u32* raw = (u32*)malloc(16384);
-  fread(raw, (sizeof(u32)), 16384/32, f);
-  fclose(f);
-  
-  }		  
-  */
+
+  blueNoise = loadImage("textures/LDR_RGBA_1.bmp");
   
   const char* fileName;
   if (argc > 1)
@@ -441,11 +439,13 @@ int main(int argc, char** argv)
 
   
   writeImage(&image, fileName);
-  
+
   free(image.pixels);
   free(world);
   free(camera);
   free(threadIDs);
+  free(blueNoise->pixels);
+  free(blueNoise);
   
   return 0;
 }

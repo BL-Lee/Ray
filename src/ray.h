@@ -30,7 +30,7 @@ typedef struct _WorkQueue
 }WorkQueue;
 
 
-vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32 sampleCount, u16* maskPtr);
+vec3 rayTrace(World* world, Camera* camera, lane_f32 filmY, lane_f32 filmX,  u32 sampleCount, u32 screenX, u32 screenY);//, u16* maskPtr);
 void renderTile(World* world, Image image,
 		u32 minX, u32 onePastMaxX,
 		u32 minY, u32 onePastMaxY,

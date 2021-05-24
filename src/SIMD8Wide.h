@@ -46,6 +46,12 @@ lane_f32 laneF32FromLaneU32(lane_u32 A)
   result.V = _mm256_cvtepi32_ps(A.V);
   return result;
 }
+lane_u32 laneU32FromLaneF32(lane_f32 A)
+{
+  lane_u32 result;
+  result.V = _mm256_cvtps_epi32(A.V);
+  return result;
+}
 
 
 //u32 operators

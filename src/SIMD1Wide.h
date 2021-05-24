@@ -6,6 +6,13 @@ lane_f32 laneF32FromLaneU32(lane_u32 A)
 {
   return A;
 }
+lane_u32 laneU32FromLaneF32(lane_f32 A)
+{
+  lane_u32 result;
+  result = (lane_u32)A;
+  return result;
+}
+
 lane_u32 laneU32FromU32(u32 A)
 {
   return A;
