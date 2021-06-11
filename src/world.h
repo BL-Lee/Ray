@@ -1,115 +1,88 @@
 #ifndef __WORLD_HEADER
 #define __WORLD_HEADER
 
-#define WORLD_SPHERE_COUNT 8
+#define WORLD_SPHERE_COUNT 32
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
-#define WORLD_TRIANGLE_COUNT 64
+#define WORLD_TRIANGLE_COUNT 1024
+#define SPATIAL_BOX_COUNT 64
 
 #include "Math.h"
+#include "float.h"
 #ifdef __USE_OPENCL
 
-#if defined(_MSC_VER) 
-#pragma pack(push,1)
 //OpenCL structs
-typedef struct 
+#pragma pack(push,1)
+
+
+
+typedef struct
 {
-  vec3 position;
-  float pad; //TODO: figure out better way for padding for opencl's coversion of float3 to float4
-  f32 radius;
-  s32 matIndex;
-}Sphere;
-
-typedef struct 
-{ 
-  vec3 normal;
-  float pad;
-  f32 dist; //distance along normal
-  s32 matIndex;
-}Plane;
-
-typedef struct _Triangle
-{
-  vec3 v0;
-  float pad1;  
-  vec3 v1;
-  float pad2;
-  vec3 v2;
-  float pad3;
-  vec3 normal;
-  float pad4;
-  int matIndex;
-}Triangle;
-
-typedef struct 
-{
-  vec3 emitColour;
-  float pad1;  
-  vec3 reflectColour;
-  float pad2;
-  f32 scatterScale;
-}Material;
-
-
-typedef struct 
-{
-  Plane planes[WORLD_PLANE_COUNT];
-  Sphere spheres[WORLD_SPHERE_COUNT];
-  Material materials[WORLD_MATERIAL_COUNT];
-  Triangle triangles[WORLD_TRIANGLE_COUNT];
-  volatile u32 bounceCount;
+  u32 planes[1];//indices into world
+  u32 spheres[2];
+  u32 triangles[40];
   s32 planeCount;
   s32 sphereCount;
-  s32 materialCount;
-  S32 triangleCount;
-  u32 totalTileCount;
-}World;
-#pragma pack(pop)
+  s32 triangleCount;
+}Object;
+
+typedef struct _SpatialBox
+{
+  //these are in a different area of memory, that way plane Distances are cache friendly
+  //might not even need pointer if theyre the same index as the object in SH?
+  f32 planeDistances[7][2];
+}SpatialBox;
 
 
-#elif defined(unix) || defined(__unix__) || defined(__unix) || defined(__APPLE__)//should really be gnu compiler
-//OpenCL structs
-typedef struct __attribute__((packed))
+typedef struct
+{
+  SpatialBox boxes[32];
+  Object objects[32];
+  vec3 planeNormals[7];
+  u32 objectCount = 0;
+}SpatialHeirarchy;
+
+typedef struct
 {
   vec3 position;
-  float pad; //TODO: figure out better way for padding for opencl's coversion of float3 to float4
+  //float pad; //TODO: figure out better way for padding for opencl's coversion of float3 to float4
   f32 radius;
   s32 matIndex;
 }Sphere;
 
-typedef struct __attribute__((packed))
+typedef struct
 { 
   vec3 normal;
-  float pad;
+  //float pad;
   f32 dist; //distance along normal
   s32 matIndex;
 }Plane;
 
-typedef struct __attribute__((packed))
+typedef struct
 {
   vec3 v0;
-  float pad0;
+  //float pad0;
   vec3 v1;
-  float pad1;
+  //float pad1;
   vec3 v2;
-  float pad2;
+  //float pad2;
   vec3 normal;
-  float pad3;
+  //float pad3;
   int matIndex;
 }Triangle;
 
 
-typedef struct  __attribute__((packed))
+typedef struct
 {
   vec3 emitColour;
-  float pad1;  
+  //float pad1;  
   vec3 reflectColour;
-  float pad2;
+  //float pad2;
   f32 scatterScale;
 }Material;
 
 
-typedef struct  __attribute__((packed))
+typedef struct
 {
   Plane planes[WORLD_PLANE_COUNT];
   Sphere spheres[WORLD_SPHERE_COUNT];
@@ -121,15 +94,46 @@ typedef struct  __attribute__((packed))
   s32 materialCount;
   s32 triangleCount;
   u32 totalTileCount;
+  SpatialHeirarchy SH;
 }World;
 
-#endif
+#pragma pack(pop)
 
 #else
+
 #include "SIMD.h"
+
 //
 //CPU structs
 //
+
+typedef struct
+{
+  u32 planes[1];//indices into world
+  u32 spheres[2];
+  u32 triangles[40];
+  s32 planeCount;
+  s32 sphereCount;
+  s32 triangleCount;
+}Object;
+
+typedef struct _SpatialBox
+{
+  //these are in a different area of memory, that way plane Distances are cache friendly
+  //might not even need pointer if theyre the same index as the object in SH?
+  f32 planeDistances[7][2];
+}SpatialBox;
+
+
+typedef struct
+{
+  SpatialBox boxes[32];
+  Object objects[32];
+  vec3 planeNormals[7];
+  u32 objectCount = 0;
+}SpatialHeirarchy;
+
+
 typedef struct _Sphere
 {
   vec3 position;
@@ -174,7 +178,9 @@ typedef struct _World
   u32 totalTileCount;
   volatile u64 bounceCount;
   volatile u64 tilesCompleted;
+  SpatialHeirarchy SH;
 }World;
+
 
 
 #endif //__USE_OPENCL
@@ -184,5 +190,13 @@ void addSphereToWorld(World* world, Sphere* sphere);
 void addPlaneToWorld(World* world, Plane* plane);
 void addMaterialToWorld(World* world, Material* mat);
 void addTriangleToWorld(World* world, Triangle* triangle);
+void addObjectToWorld(World* world, Object* object);
 
+void addSphereToObject(World* world, Object* object);
+void addPlaneToObject(World* world, Object* object);
+void addTriangleToObject(World* world, Object* object);
+
+void generateSpatialHeirarchy(World* world, SpatialHeirarchy* SH);
+void computeExtentBounds(Object* object, SpatialBox* box, World* world);
+void splitBox(SpatialHeirarchy* SH, SpatialBox* box, World* world, u32 axis);
 #endif //__WORLD_HEADER

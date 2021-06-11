@@ -2,6 +2,8 @@ typedef float lane_f32;
 typedef uint32_t lane_u32;
 typedef vec3 lane_v3;
 
+
+
 lane_f32 laneF32FromLaneU32(lane_u32 A)
 {
   return A;
@@ -27,6 +29,21 @@ lane_v3 laneV3FromV3(vec3 A)
 }
 
 
+void xorSwap(lane_u32 condition, lane_f32* A, lane_f32* B)
+{
+  if (condition)
+    {
+      f32 temp = *A;
+      *A = *B;
+      *B = temp;
+    }
+}
+lane_f32 xorLaneF32(lane_f32 A, lane_f32 B)
+{
+  return (lane_f32)(((*(int*)&A)) ^ (*(int*)&B));
+}
+
+
 void ConditionalAssign(lane_u32* target, lane_u32 condition, lane_u32 value)
 {
   condition = condition ? 0xFFFFFFFF : 0;
@@ -43,11 +60,6 @@ void ConditionalAssign(lane_v3* target, lane_u32 condition, lane_v3 value)
   ConditionalAssign((lane_f32*)&target->x, condition, value.x);
   ConditionalAssign((lane_f32*)&target->y, condition, value.y);
   ConditionalAssign((lane_f32*)&target->z, condition, value.z);
-}
-
-lane_f32 Max(lane_f32 first, lane_f32 second)
-{
-  return first > second ? first : second;
 }
 
 lane_u32 MaskAllZeros(lane_u32 mask)

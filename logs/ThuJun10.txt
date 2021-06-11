@@ -1,0 +1,8 @@
+Spatial Heirarchy built. #Boxes: 16
+Config: Use CPU, 4 cores, 512 rays per pixel, 1280x720 image,
+	64x64 tiles at 16k/tile, Lane Width: 8
+	Lens radius: 0.1000
+Raytracing...100%
+Took 49274.949000ms
+Total bounces: 619036208
+Took 0.000080ms per bounce

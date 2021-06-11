@@ -14,9 +14,9 @@ typedef struct lane_u32
 
 typedef struct lane_v3
 {
-  lane_f32  X;
-  lane_f32  Y;
-  lane_f32  Z;
+  lane_f32  x;
+  lane_f32  y;
+  lane_f32  z;
   lane_v3 &operator=(vec3);
 }lane_v3;
 
@@ -36,9 +36,9 @@ lane_u32 laneU32FromU32(u32 A)
 lane_v3 laneV3FromV3(vec3 A)
 {
   lane_v3 result;
-  result.X = A.x;
-  result.Y = A.y;
-  result.Z = A.z;
+  result.x = A.x;
+  result.y = A.y;
+  result.z = A.z;
   return result;
 }
 lane_f32 laneF32FromLaneU32(lane_u32 A)
@@ -111,6 +111,13 @@ lane_u32 operator>(lane_u32 A, lane_u32 B)
   result.V = _mm_cmpgt_epi32(A.V, B.V);
   return result;
 }
+lane_u32 operator==(lane_u32 A, lane_u32 B)
+{
+  lane_u32 result;
+  result.V = _mm_cmpeq_epi32(A.V, B.V);
+  return result;
+}
+
 
 //f32 operators
 lane_f32 operator+(lane_f32 A, lane_f32 B)
@@ -149,12 +156,17 @@ lane_u32 operator>(lane_f32 A, lane_f32 B)
   result.V = _mm_castps_si128(_mm_cmpgt_ps(A.V, B.V));
   return result;
 }
-lane_u32 operator==(lane_u32 A, lane_u32 B)
+lane_f32 operator^(lane_f32 A, lane_f32 B)
 {
-  lane_u32 result;
-  result.V = _mm_cmpeq_ps(A.V, B.V);
+  lane_f32 result;
+  result.V = _mm_xor_ps(A.V, B.V);
   return result;
 }
+lane_f32 xorLaneF32(lane_f32 A, lane_f32 B)
+{
+  return A ^ B;
+}
+
 lane_f32 operator&(lane_u32 A, lane_f32 B)
 {
   lane_f32 result;
@@ -190,9 +202,9 @@ lane_f32 loadF32Values(f32* values)
 lane_v3 loadV3Values(vec3* values)
 {
   lane_v3 result;
-  result.X = loadF32Values(values[0].x, values[1].x, values[2].x, values[3].x);
-  result.Y = loadF32Values(values[0].y, values[1].y, values[2].y, values[3].y);
-  result.Z = loadF32Values(values[0].z, values[1].z, values[2].z, values[3].z);
+  result.x = loadF32Values(values[0].x, values[1].x, values[2].x, values[3].x);
+  result.y = loadF32Values(values[0].y, values[1].y, values[2].y, values[3].y);
+  result.z = loadF32Values(values[0].z, values[1].z, values[2].z, values[3].z);
   return result;
 }
 lane_f32 gatherF32_(void* basePointer, u32 stride, lane_u32 indices)
@@ -224,9 +236,9 @@ void ConditionalAssign(lane_f32* target, lane_u32 condition, lane_f32 value)
 
 void ConditionalAssign(lane_v3* target, lane_u32 condition, lane_v3 value)
 {
-  ConditionalAssign(&target->X, condition, value.X);
-  ConditionalAssign(&target->Y, condition, value.Y);
-  ConditionalAssign(&target->Z, condition, value.Z);
+  ConditionalAssign(&target->x, condition, value.x);
+  ConditionalAssign(&target->y, condition, value.y);
+  ConditionalAssign(&target->z, condition, value.z);
 }
 
 int MaskAllZeros(lane_u32 mask)
@@ -248,10 +260,16 @@ f32 HorizontalAdd(lane_f32 lane)
   return result;
 }
 
-lane_f32 Max(lane_f32 first, lane_f32 second)
+lane_f32 max(lane_f32 first, lane_f32 second)
 {
   lane_f32 result;
   result.V = _mm_max_ps(first.V, second.V);
+  return result;
+}
+lane_f32 min(lane_f32 first, lane_f32 second)
+{
+  lane_f32 result;
+  result.V = _mm_min_ps(first.V, second.V);
   return result;
 }
 

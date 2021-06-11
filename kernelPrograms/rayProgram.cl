@@ -1,8 +1,10 @@
 
-#define WORLD_SPHERE_COUNT 8
+#define WORLD_SPHERE_COUNT 32
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
-#define WORLD_TRIANGLE_COUNT 64
+#define WORLD_TRIANGLE_COUNT 1024
+#define SPATIAL_BOX_COUNT 64
+
 
 typedef struct __attribute__((packed))_clSphere
 {
@@ -35,18 +37,45 @@ typedef struct __attribute__((packed))_clMaterial
   float scatterScale;
 }clMaterial;
 
+typedef struct __attribute__((packed))_clObject
+{
+  uint planes[1];//indices into world
+  uint spheres[2];
+  uint triangles[40];
+  int planeCount;
+  int sphereCount;
+  int triangleCount;
+}clObject;
+
+typedef struct __attribute__((packed))_clSpatialBox
+{
+  //these are in a different area of memory, that way plane Distances are cache friendly
+  //might not even need pointer if theyre the same index as the object in SH?
+  float planeDistances[7][2];
+}clSpatialBox;
+
+
+typedef struct __attribute__((packed))
+{
+  clSpatialBox boxes[32];
+  clObject objects[32];
+  float3 planeNormals[7];
+  uint objectCount;
+}clSpatialHeirarchy;
+
 typedef struct __attribute__((packed))_clWorld
 {
-  clPlane planes[8];
-  clSphere spheres[8];
-  clMaterial materials[8];
-  clTriangle triangles[64];
+  clPlane planes[WORLD_PLANE_COUNT];
+  clSphere spheres[WORLD_SPHERE_COUNT];
+  clMaterial materials[WORLD_MATERIAL_COUNT];
+  clTriangle triangles[WORLD_TRIANGLE_COUNT];
   volatile uint bounceCount;
   int planeCount;
   int sphereCount;
   int materialCount;
   int triangleCount;
   uint totalTileCount;
+  clSpatialHeirarchy SH;
 }clWorld;
 
 typedef struct __attribute__((packed))_clCamera
@@ -140,11 +169,11 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
     -1.0 + (2.0 * (float)pixel.y / (float)get_image_height(image))};
 
   uint entropy = (pixel.x + 9123891 * 912) * (pixel.y * 19275 - 1923);
-  //printf("world planeCount:  %d\n", world->planeCount);
-  float tolerance = 0.0001;
+    float tolerance = 0.0001;
   float minHitDistance = 0.0001;
   float3 finalColour = {0,0,0};
   uint bouncesComputed = 0;
+  clSpatialHeirarchy SH = world->SH;
   
   for (uint i = 0; i < sampleCount; i++)
     {
@@ -166,107 +195,171 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera,
       float3 attenuation = {1.0f,1.0f,1.0f};//how much the colour changes from the bounced material
       //Each time, a ray can bounce this many times
       for (uint bounceCount = 0; bounceCount < 8; bounceCount++)
-	{	  
-	  
+	{	                   
 	  float minDist = FLT_MAX;
 	  uint matIndex = 0;
 	  bouncesComputed++;
-	  //iterate over all planes to see if they intersect
-	  for (int i = 0; i < world->planeCount; i++)
-	    {
-	      clPlane plane = world->planes[i];
-	      float denom = dot(plane.normal, rayDirection);
-	      if( (denom > tolerance) | (denom < -tolerance))
-		{
-		  float dist = (-plane.dist - dot(plane.normal, rayOrigin)) / denom;
-		  if ((dist > minHitDistance) && (dist < minDist))
-		    {
-		      minDist = dist;
-		      bounceNormal = plane.normal;
-		      matIndex = plane.matIndex;
-		    }
-		}
-	    }
-	  //iterate over all spheres
-	  for (int i = 0; i < world->sphereCount; i++)
-	    {
-	      clSphere sphere = world->spheres[i];
+          
+          //check which spatial box to iterate through
+          //cl_SpatialBox box = SH.boxes[0];
+          /*          
+                      for (uint boxIndex = 0; boxIndex < SH.objectCount; boxIndex++)
+                      {
+                      float boxHitDistNear;
+                      boxHitDistNear = -FLT_MAX;
+                      float boxHitDistFar;
+                      boxHitDistFar = FLT_MAX;
+
+                      uint hitMask;
+                      hitMask = 0xFFFFFFFF;
+                      //check if this ray collides with this bounding "box"
+                      for (uint boundingPlane = 0; boundingPlane < 7; boundingPlane++)
+                      {
+                      float3 planeNormal;
+                      planeNormal = SH.planeNormals[boundingPlane];
+		  	  
+                      float denom = dot(planeNormal, rayDirection);
+                      uint toleranceMask = (denom > tolerance) || (denom < -tolerance);
+
+
+                      //currently slightly faster without this condition
+                      //if (!MaskAllZeros(toleranceMask))
+                      {
+                      float planeNearOffset;
+                      planeNearOffset = SH.boxes[boxIndex].planeDistances[boundingPlane][0];
+
+                      float planeFarOffset;
+                      planeFarOffset  = SH.boxes[boxIndex].planeDistances[boundingPlane][1];
+
+
+                      float numerator;
+                      numerator = dot(planeNormal, rayOrigin);
+		    
+                      float farDist = (-planeFarOffset - numerator) / denom;
+                      float nearDist = (-planeNearOffset - numerator) / denom;
+
+                      //conditionally swap the distances if denom is > 0
+                      if (denom > 0.0f) {
+                      float temp = farDist;
+                      farDist = nearDist;
+                      nearDist = temp;
+                      }
+
+                      boxHitDistNear = max(nearDist, boxHitDistNear);
+                      boxHitDistFar = min(farDist, boxHitDistFar);
+		    
+                      uint distMask = boxHitDistNear < boxHitDistFar;
+                      hitMask = toleranceMask && distMask && hitMask;
+                      if (!hitMask)
+		      {
+                      break;
+		      }
+                      }
+                      }
+                      //at least one ray hit this box
+                      if (hitMask) {
+
+                      clObject object = SH.objects[boxIndex];
+          */
+          
+          //iterate over all planes to see if they intersect
+          for (int i = 0; i < world->planeCount; i++)
+            {
+              clPlane plane = world->planes[i];
+              float denom = dot(plane.normal, rayDirection);
+              if( (denom > tolerance) | (denom < -tolerance))
+                {
+                  float dist = (-plane.dist - dot(plane.normal, rayOrigin)) / denom;
+                  if ((dist > minHitDistance) && (dist < minDist))
+                    {
+                      minDist = dist;
+                      bounceNormal = plane.normal;
+                      matIndex = plane.matIndex;
+                    }
+                }
+            }
+          //iterate over all spheres
+          for (int i = 0; i < world->sphereCount; i++)
+            {
+              clSphere sphere = world->spheres[i];
 	  
-	      float3 relativeSpherePos = rayOrigin - sphere.position;
-	      float a = dot(rayDirection, rayDirection);
-	      float b = 2*dot(rayDirection, relativeSpherePos);
-	      float c = dot(relativeSpherePos, relativeSpherePos) - sphere.radius * sphere.radius;
+              float3 relativeSpherePos = rayOrigin - sphere.position;
+              float a = dot(rayDirection, rayDirection);
+              float b = 2*dot(rayDirection, relativeSpherePos);
+              float c = dot(relativeSpherePos, relativeSpherePos) - sphere.radius * sphere.radius;
 
-	      float root = b*b - 4*a*c;
-	      if (root > tolerance)
-		{
-		//float farDist = (-b + sqrt(root)) / 2*a;	      
-		  float dist = (-b - sqrt(root)) / 2*a;
-		  if (dist > minHitDistance && dist < minDist)
-		    {
-		      minDist = dist;
-		      bounceNormal = normalize((rayOrigin + rayDirection * dist) - sphere.position);
-		      matIndex = sphere.matIndex;
-		    }
-		}
-	    }
+              float root = b*b - 4*a*c;
+              if (root > tolerance)
+                {
+                  //float farDist = (-b + sqrt(root)) / 2*a;	      
+                  float dist = (-b - sqrt(root)) / 2*a;
+                  if (dist > minHitDistance && dist < minDist)
+                    {
+                      minDist = dist;
+                      bounceNormal = normalize((rayOrigin + rayDirection * dist) - sphere.position);
+                      matIndex = sphere.matIndex;
+                    }
+                }
+            }
           for (int i = 0; i < world->triangleCount; i++)	    
-	    {
-	      clTriangle triangle = world->triangles[i];
+            {
+              clTriangle triangle = world->triangles[i];
 
-
-	      float3 v0 = triangle.v0;
-	      float3 v1 = triangle.v1;
-	      float3 v2 = triangle.v2;
-	      //v2 = triangle.normal;
-	      float3 normal = normalize(cross(v1-v0, v2-v0));
+              float3 v0 = triangle.v0;
+              float3 v1 = triangle.v1;
+              float3 v2 = triangle.v2;
+              //v2 = triangle.normal;
+              float3 normal = normalize(cross(v1-v0, v2-v0));
 	      
-	      float denom = dot(normal, rayDirection);
-	      uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
+              float denom = dot(normal, rayDirection);
+              uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
 
-	      //if (toleranceMask)
-	      {
-		float triangleOffset; //like the planeDist but for the triangle
-		triangleOffset = -dot(normal, v0);
-		float triangleDist;
-		triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
+              //if (toleranceMask)
+              {
+                float triangleOffset; //like the planeDist but for the triangle
+                triangleOffset = -dot(normal, v0);
+                float triangleDist;
+                triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
 		
-		uint planeHitMask;
-		planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
-		if (planeHitMask)
-		{
-		  uint triangleHitMask;
-		  triangleHitMask = 0x1;
+                uint planeHitMask;
+                planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+                if (planeHitMask)
+                  {
+                    uint triangleHitMask;
+                    triangleHitMask = 0x1;
 		  
-		  float3 planePoint;
-		  planePoint = (rayDirection * triangleDist) + rayOrigin;
+                    float3 planePoint;
+                    planePoint = (rayDirection * triangleDist) + rayOrigin;
 
-		  float3 edgePerp;
+                    float3 edgePerp;
 		  
-		  float3 edge0 = v1 - v0;
-		  edgePerp = cross(edge0, planePoint - v0);
-		  triangleHitMask &= dot(normal, edgePerp) > 0.0;
+                    float3 edge0 = v1 - v0;
+                    edgePerp = cross(edge0, planePoint - v0);
+                    triangleHitMask &= dot(normal, edgePerp) > 0.0;
 
-		  float3 edge1 = v2 - v1;
-		  edgePerp = cross(edge1, planePoint - v1);
-		  triangleHitMask &= dot(normal, edgePerp) > 0.0;
+                    float3 edge1 = v2 - v1;
+                    edgePerp = cross(edge1, planePoint - v1);
+                    triangleHitMask &= dot(normal, edgePerp) > 0.0;
 
-		  float3 edge2 = v0 - v2;
-		  edgePerp = cross(edge2, planePoint - v2);
-		  triangleHitMask &= dot(normal, edgePerp) > 0.0;
+                    float3 edge2 = v0 - v2;
+                    edgePerp = cross(edge2, planePoint - v2);
+                    triangleHitMask &= dot(normal, edgePerp) > 0.0;
 
-		  uint hitMask = triangleHitMask && planeHitMask;
+                    uint hitMask = triangleHitMask && planeHitMask;
 		  					 
-		  if (hitMask)
-		    {
-                      minDist = triangleDist;
-                      bounceNormal = normal;
-                      matIndex = triangle.matIndex;
-		    }
-		}
-	      }
-	    }
-
+                    if (hitMask)
+                      {
+                        minDist = triangleDist;
+                        bounceNormal = normal;
+                        matIndex = triangle.matIndex;
+                      }
+                  }
+              }
+            }
+        
+          //  }
+          //}
+        
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something
 	  resultColour += mat.emitColour * attenuation; // does hadamard product

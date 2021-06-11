@@ -13,9 +13,9 @@ typedef struct lane_u32
 
 typedef struct lane_v3
 {
-  lane_f32  X;
-  lane_f32  Y;
-  lane_f32  Z;
+  lane_f32  x;
+  lane_f32  y;
+  lane_f32  z;
   lane_v3 &operator=(vec3);
 }lane_v3;
 
@@ -35,9 +35,9 @@ lane_u32 laneU32FromU32(u32 A)
 lane_v3 laneV3FromV3(vec3 A)
 {
   lane_v3 result;
-  result.X = A.x;
-  result.Y = A.y;
-  result.Z = A.z;
+  result.x = A.x;
+  result.y = A.y;
+  result.z = A.z;
   return result;
 }
 lane_f32 laneF32FromLaneU32(lane_u32 A)
@@ -91,12 +91,6 @@ lane_u32 operator|(lane_u32 A, lane_u32 B)
   result.V = _mm256_or_si256(A.V, B.V);
   return result;
 }
-lane_u32 operator==(lane_u32 A, lane_u32 B)
-{
-  lane_u32 result;
-  result.V = _mm256_cmpeq_epi32(A.V, B.V);
-  return result;
-}
 lane_u32 operator&(lane_u32 A, lane_u32 B)
 {
   lane_u32 result;
@@ -117,9 +111,14 @@ lane_u32 operator>(lane_u32 A, lane_u32 B)
 }
 lane_u32 operator<(lane_u32 A, lane_u32 B)
 {
-  lane_u32 result = (A > B & A == B) ^ laneU32FromU32(-1);
-  // a < b = ~(a > b & a == b) = (a > b & a == b) ^ 0xFFFFF...
-  //since theres not NOT or less than operator intrinsic
+  lane_u32 result;
+  result.V = _mm256_andnot_si256(_mm256_cmpeq_epi32(A.V, B.V) ,_mm256_cmpgt_epi32(B.V, A.V));
+  return result;
+}
+lane_u32 operator==(lane_u32 A, lane_u32 B)
+{
+  lane_u32 result;
+  result.V = _mm256_cmpeq_epi32(A.V, B.V);  
   return result;
 }
 //f32 operators
@@ -147,6 +146,12 @@ lane_f32 operator/(lane_f32 A, lane_f32 B)
   result.V = _mm256_div_ps(A.V, B.V);
   return result;
 }
+lane_f32 operator^(lane_f32 A, lane_f32 B)
+{
+  lane_f32 result;
+  result.V = _mm256_xor_ps(A.V, B.V);
+  return result;
+}
 lane_u32 operator<(lane_f32 A, lane_f32 B)
 {
   lane_u32 result;
@@ -160,11 +165,15 @@ lane_u32 operator>(lane_f32 A, lane_f32 B)
   return result;
 }
 
-lane_f32 operator&(lane_u32 A, lane_f32 B)
+//lane_f32 operator&(lane_u32 A, lane_f32 B)
+//{
+  //lane_f32 result;
+  //result.V = _mm256_and_ps(_mm256_castsi256_ps(A.V), B.V);
+  //return result;
+//}
+lane_f32 xorLaneF32(lane_f32 A, lane_f32 B)
 {
-  lane_f32 result;
-  result.V = _mm256_and_ps(_mm256_castsi256_ps(A.V), B.V);
-  return result;
+  return A ^ B;
 }
 
 
@@ -180,6 +189,7 @@ inline lane_f32 sqrt(lane_f32 A)
   result.V = _mm256_sqrt_ps(A.V);
   return result;
 }
+
 lane_f32 loadF32Values(f32 A, f32 B, f32 C, f32 D, f32 E, f32 F, f32 G, f32 H)
 {
   lane_f32 result;
@@ -192,23 +202,23 @@ lane_f32 loadF32Values(f32* values)
   result.V = _mm256_set_ps(values[0], values[1], values[2], values[3],
 			   values[4], values[5], values[6], values[7]);
   return result;
-}
+  }
+/*
 lane_v3 loadV3Values(vec3* values)
 {
   lane_v3 result;
-  result.X = loadF32Values(values[0].x, values[1].x, values[2].x, values[3].x,
+  result.x = loadF32Values(values[0].x, values[1].x, values[2].x, values[3].x,
 			   values[4].x, values[5].x, values[6].x, values[7].x);
-  result.Y = loadF32Values(values[0].y, values[1].y, values[2].y, values[3].y,
+  result.y = loadF32Values(values[0].y, values[1].y, values[2].y, values[3].y,
 			   values[4].y, values[5].y, values[6].y, values[7].y);
-  result.Z = loadF32Values(values[0].z, values[1].z, values[2].z, values[3].z,
+  result.z = loadF32Values(values[0].z, values[1].z, values[2].z, values[3].z,
 			   values[4].z, values[5].z, values[6].z, values[7].z);
   return result;
-}
+  }*/
 lane_f32 gatherF32_(void* basePointer, u32 stride, lane_u32 indices)
 {
   //indices pointer, each one individually
   u32* V = (u32*)&indices.V;
-  const int scale = stride;
   lane_f32 result;
   result.V = _mm256_setr_ps(*(f32*)((u8*)basePointer + V[0]*stride),
 			    *(f32*)((u8*)basePointer + V[1]*stride),
@@ -218,10 +228,7 @@ lane_f32 gatherF32_(void* basePointer, u32 stride, lane_u32 indices)
 			    *(f32*)((u8*)basePointer + V[5]*stride),
 			    *(f32*)((u8*)basePointer + V[6]*stride),
 			    *(f32*)((u8*)basePointer + V[7]*stride));
-			    
-  //result.V = _mm256_i32gather_ps(basePointer, indices.V, );
   return result;
-  
 }
 
 
@@ -238,13 +245,15 @@ void ConditionalAssign(lane_f32* target, lane_u32 condition, lane_f32 value)
 
 void ConditionalAssign(lane_v3* target, lane_u32 condition, lane_v3 value)
 {
-  ConditionalAssign(&target->X, condition, value.X);
-  ConditionalAssign(&target->Y, condition, value.Y);
-  ConditionalAssign(&target->Z, condition, value.Z);
+  ConditionalAssign(&target->x, condition, value.x);
+  ConditionalAssign(&target->y, condition, value.y);
+  ConditionalAssign(&target->z, condition, value.z);
 }
 
+
+
 int MaskAllZeros(lane_u32 mask)
-{
+{  
   return _mm256_movemask_epi8(mask.V) == 0;
 }
 
@@ -259,6 +268,7 @@ u64 HorizontalAdd(lane_u32 lane)
   return result;
     
 }
+/*
 f32 HorizontalAdd(lane_f32 lane)
 {
     // hiQuad = ( x7, x6, x5, x4 )
@@ -280,12 +290,26 @@ f32 HorizontalAdd(lane_f32 lane)
     // sum = ( -, -, -, x0 + x1 + x2 + x3 + x4 + x5 + x6 + x7 )
     const __m128 sum = _mm_add_ss(lo, hi);
     return _mm_cvtss_f32(sum);
+    }*/
+f32 HorizontalAdd(lane_f32 lane)
+{
+  f32* V = (f32*)&lane.V;
+  f32 result = V[0] + V[1] + V[2] + V[3] + V[4] + V[5] + V[6] + V[7];
+  return result;
 }
 
-lane_f32 Max(lane_f32 first, lane_f32 second)
+
+lane_f32 max(lane_f32 first, lane_f32 second)
 {
   lane_f32 result;
   result.V = _mm256_max_ps(first.V, second.V);
+  return result;
+}
+
+lane_f32 min(lane_f32 first, lane_f32 second)
+{
+  lane_f32 result;
+  result.V = _mm256_min_ps(first.V, second.V);
   return result;
 }
 

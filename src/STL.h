@@ -5,6 +5,7 @@
 #include "Math.h"
 
 void loadSTLShape(World* world, const char* fileName);
+void loadSTLShape(World* world, const char* fileName, vec3 offset);
 
 #endif
 

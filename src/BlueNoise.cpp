@@ -4,6 +4,7 @@
 
 //Blue noise sampler from https://perso.liris.cnrs.fr/david.coeurjolly/publications/heitz19.pdf
 //#include "samplerBlueNoiseErrorDistribution_128x128_OptimizedFor_2d2d2d2d_1spp.cpp"
+/*
 f32 sampleXorThing(u32 x, u32 y, u32 sampleIndex, u32 sampleDimension)
 {
   //u32 point = y * 128 + x;
@@ -22,7 +23,7 @@ f32 sampleXorThing(u32 x, u32 y, u32 sampleIndex, u32 sampleDimension)
   return result;
 
 }
-
+*/
 vec3 sample3dBlueNoise(Image* blueNoise, u32 x, u32 y, u32 offset)
 {
   offset = offset * 6;

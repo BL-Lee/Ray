@@ -109,18 +109,29 @@ inline vec2 &vec2::operator/=(float b)
   Vector 3
 
  */
+#define PACKED_VEC3_SIZE 12
 typedef struct vec3
 {
   float x;
   float y;
   float z;
-  
+  #ifdef __USE_OPENCL
+  float pad = 0.0f;
+  #endif
   inline vec3 &operator+=(vec3 b);
   inline vec3 &operator-=(vec3 b);
   inline vec3 &operator*=(float b);
   inline vec3 &operator/=(float b);
 
 
+
+#ifdef __USE_OPENCL
+vec3(float a, float b, float c):x{a},y{b},z{c},pad{0.0f}{}
+vec3():x{0},y{0},z{0},pad{0}{}
+  #else
+vec3(float a, float b, float c):x{a},y{b},z{c}{}
+vec3():x{0},y{0},z{0}{}
+#endif
 } vec3;
 
 inline vec3 operator+(vec3 a, vec3 b)
@@ -502,20 +513,20 @@ inline vec2 normalize(vec2 a)
 
 inline float max(float a, float b)
 {
-  return a < b ? a : b;
+  return a < b ? b : a;
 }
 inline float min(float a, float b)
 {
-  return a > b ? a : b;
+  return a < b ? a : b;
 }
 
 inline int max(int a, int b)
 {
-  return a < b ? a : b;
+  return a < b ? b : a;
 }
 inline int min(int a, int b)
 {
-  return a > b ? a : b;
+  return a < b ? a : b;
 }
 
 /*

@@ -9,7 +9,7 @@
 #include "STL.cpp"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 1024
+ #define RAYS_PER_PIXEL 1
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -56,7 +56,22 @@ int main(int argc, char** argv)
   World* world = initWorld();
   loadSTLShape(world, "assets/models/Dodecahedron.stl");
   Camera* camera = initCamera(image);
-  
+    u32 entropy = 0xfae1;
+  for (int i = 0; i < 4; i++)
+    {
+      vec3 loc =
+	{
+	  randomBilateral32(&entropy) * 5.0f,
+	  randomBilateral32(&entropy) * 5.0f,
+	  randomBilateral32(&entropy) * 5.0f
+	};
+
+      loadSTLShape(world, "assets/models/Dodecahedron.stl", loc);
+    }
+
+  generateSpatialHeirarchy(world, &world->SH);
+  printf("Spatial Heirarchy Built: # boxes: %d\n", world->SH.objectCount);
+    
   size_t globalWorkSize[2] = {image.width, image.height};
   size_t localWorkSize[2] = {8,8};
   
