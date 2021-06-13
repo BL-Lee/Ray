@@ -10,99 +10,11 @@
 #include "Math.h"
 #include "float.h"
 #ifdef __USE_OPENCL
-
 //OpenCL structs
 #pragma pack(push,1)
-
-
-
-typedef struct
-{
-  u32 planes[1];//indices into world
-  u32 spheres[2];
-  u32 triangles[40];
-  s32 planeCount;
-  s32 sphereCount;
-  s32 triangleCount;
-}Object;
-
-typedef struct _SpatialBox
-{
-  //these are in a different area of memory, that way plane Distances are cache friendly
-  //might not even need pointer if theyre the same index as the object in SH?
-  f32 planeDistances[7][2];
-}SpatialBox;
-
-
-typedef struct
-{
-  SpatialBox boxes[32];
-  Object objects[32];
-  vec3 planeNormals[7];
-  u32 objectCount = 0;
-}SpatialHeirarchy;
-
-typedef struct
-{
-  vec3 position;
-  //float pad; //TODO: figure out better way for padding for opencl's coversion of float3 to float4
-  f32 radius;
-  s32 matIndex;
-}Sphere;
-
-typedef struct
-{ 
-  vec3 normal;
-  //float pad;
-  f32 dist; //distance along normal
-  s32 matIndex;
-}Plane;
-
-typedef struct
-{
-  vec3 v0;
-  //float pad0;
-  vec3 v1;
-  //float pad1;
-  vec3 v2;
-  //float pad2;
-  vec3 normal;
-  //float pad3;
-  int matIndex;
-}Triangle;
-
-
-typedef struct
-{
-  vec3 emitColour;
-  //float pad1;  
-  vec3 reflectColour;
-  //float pad2;
-  f32 scatterScale;
-}Material;
-
-
-typedef struct
-{
-  Plane planes[WORLD_PLANE_COUNT];
-  Sphere spheres[WORLD_SPHERE_COUNT];
-  Material materials[WORLD_MATERIAL_COUNT];
-  Triangle triangles[WORLD_TRIANGLE_COUNT];
-  volatile u32 bounceCount;
-  s32 planeCount;
-  s32 sphereCount;
-  s32 materialCount;
-  s32 triangleCount;
-  u32 totalTileCount;
-  SpatialHeirarchy SH;
-}World;
-
-#pragma pack(pop)
-
 #else
-
 #include "SIMD.h"
-
+#endif
 //
 //CPU structs
 //
@@ -178,25 +90,29 @@ typedef struct _World
   u32 totalTileCount;
   volatile u64 bounceCount;
   volatile u64 tilesCompleted;
-  SpatialHeirarchy SH;
+  //SpatialHeirarchy SH;
 }World;
 
+#ifdef __USE_OPENCL
+#pragma pack(pop)
+#endif
 
 
-#endif //__USE_OPENCL
 
-World* initWorld();
-void addSphereToWorld(World* world, Sphere* sphere);
-void addPlaneToWorld(World* world, Plane* plane);
+World* initWorld(SpatialHeirarchy* SH);
+
+Triangle* getTriangleFromWorld(World* world, u32* index);
+Sphere* getSphereFromWorld(World* world, u32* index);
+
+
 void addMaterialToWorld(World* world, Material* mat);
-void addTriangleToWorld(World* world, Triangle* triangle);
-void addObjectToWorld(World* world, Object* object);
+void addObjectToSpatialHeirarchy(SpatialHeirarchy* SH, Object* object);
 
-void addSphereToObject(World* world, Object* object);
-void addPlaneToObject(World* world, Object* object);
-void addTriangleToObject(World* world, Object* object);
+void addSphereToObject(Object* object, u32 index);
+void addPlaneToObject(Object* object, u32 index);
+void addTriangleToObject(Object* object, u32 index);
 
 void generateSpatialHeirarchy(World* world, SpatialHeirarchy* SH);
-void computeExtentBounds(Object* object, SpatialBox* box, World* world);
+void computeExtentBounds(Object* object, SpatialBox* box, World* world, SpatialHeirarchy* SH);
 void splitBox(SpatialHeirarchy* SH, SpatialBox* box, World* world, u32 axis);
 #endif //__WORLD_HEADER

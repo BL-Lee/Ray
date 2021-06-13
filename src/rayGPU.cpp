@@ -7,9 +7,10 @@
 #include "ray.h"
 #include "OpenCL.cpp"
 #include "STL.cpp"
+#include "timer.h"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 1
+ #define RAYS_PER_PIXEL 8
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -39,6 +40,7 @@ char* loadKernelProgram(const char* filePath)
 int main(int argc, char** argv)
 {
 
+  
   const char* fileName;
   if (argc > 1)
     {
@@ -53,8 +55,9 @@ int main(int argc, char** argv)
   Image image = allocateImage(IMAGE_WIDTH, IMAGE_HEIGHT);
   u32* out = image.pixels;
 
-  World* world = initWorld();
-  loadSTLShape(world, "assets/models/Dodecahedron.stl");
+  SpatialHeirarchy SH;
+  World* world = initWorld(&SH);
+  loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl");
   Camera* camera = initCamera(image);
     u32 entropy = 0xfae1;
   for (int i = 0; i < 4; i++)
@@ -66,19 +69,20 @@ int main(int argc, char** argv)
 	  randomBilateral32(&entropy) * 5.0f
 	};
 
-      loadSTLShape(world, "assets/models/Dodecahedron.stl", loc);
+      loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
 
-  generateSpatialHeirarchy(world, &world->SH);
-  printf("Spatial Heirarchy Built: # boxes: %d\n", world->SH.objectCount);
-    
-  size_t globalWorkSize[2] = {image.width, image.height};
-  size_t localWorkSize[2] = {8,8};
   
-  printf("Config: Use GPU, %d rays per pixel, %dx%d image, work group size: %lux%lu\n\tLens radius: %.4f\n",
+  generateSpatialHeirarchy(world, &SH);
+  printf("Spatial Heirarchy Built: # boxes: %d\n", SH.objectCount);
+    
+  //size_t globalWorkSize[2] = {image.width, image.height};
+  //size_t localWorkSize[2] = {8,8};
+  
+  printf("Config: Use GPU, %d rays per pixel, %dx%d image, \n\tLens radius: %.4f\n",
 	 RAYS_PER_PIXEL,
 	 IMAGE_WIDTH, IMAGE_HEIGHT,
-	 localWorkSize[0], localWorkSize[1],
+	 //localWorkSize[0], localWorkSize[1],
 	 camera->lensRadius);
 
  
@@ -94,12 +98,19 @@ int main(int argc, char** argv)
   cl_program program = clInitProgram(context, deviceID, kernelSource);
   cl_kernel kernel = clInitKernel(program, "rayTrace");
 
+
+  cl_ulong localSize;
+  clGetDeviceInfo(deviceID, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localSize, 0);
+
   size_t maxWorkGroupSize;
   clGetDeviceInfo(deviceID, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),  &maxWorkGroupSize, NULL);
+  printf("Max Local size: %llu, Max work group size: %zu\nSize of spatial Heirarchy: %lu", localSize, maxWorkGroupSize, sizeof(SpatialHeirarchy));
+
   
   int error;
   cl_mem clWorld = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(World), world, &error);
   cl_mem clCamera = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Camera), camera, &error);
+  cl_mem clSH = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(SpatialHeirarchy), &SH, &error);
   
   cl_image_format clImageFormat = {CL_RGBA, CL_UNORM_INT8};
   cl_image_desc clImageDesc = {};
@@ -116,25 +127,57 @@ int main(int argc, char** argv)
    
   clSetKernelArg(kernel, 0, sizeof(cl_mem), &clWorld);
   clSetKernelArg(kernel, 1, sizeof(cl_mem), &clCamera);
+  clSetKernelArg(kernel, 2, sizeof(cl_mem), &clSH);
   u32 sampleCount = RAYS_PER_PIXEL;
-  clSetKernelArg(kernel, 2, sizeof(u32), &sampleCount);
-  clSetKernelArg(kernel, 3, sizeof(cl_mem), &clImage);
+  clSetKernelArg(kernel, 3, sizeof(u32), &sampleCount);
+  clSetKernelArg(kernel, 4, sizeof(cl_mem), &clImage);
 
   printf(" Done!\n");
   printf("Ray tracing...");
   fflush(stdout);
   
   //render
-  struct timespec start, finish;
-  double elapsed;
-  clock_gettime(CLOCK_MONOTONIC, &start);
-  u64 startTime = clock();
-
-  //do stuff
-  clEnqueueNDRangeKernel(commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
+  Timer rayTimer;
+  startTimer(&rayTimer);
+  
+  /*
+    clEnqueueNDRangeKernel(commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);*/
+  
+  //If we don't split it into different workers for big jobs then the GPU will take too long and the watchdog will kill the rendering
+  //split into tiles
+  u32 tileWidth = 64;//image.width / coreCount;
+  u32 tileHeight = tileWidth;
+  //biased so that it goes over, so you dont have an empty region
+  u32 tileCountX = (image.width + tileWidth - 1) / tileWidth;
+  u32 tileCountY = (image.height + tileHeight - 1) / tileHeight;
+  size_t globalOffset[2];
+  size_t globalSize[2];
+  for (u32 tileY = 0; tileY < tileCountY; tileY++)
+    {
+      u32 minY = tileY * tileHeight;
+      u32 onePastMaxY = minY + tileHeight;
+      if (onePastMaxY > image.height)
+	{
+	  onePastMaxY = image.height;
+	}
+      for (u32 tileX = 0; tileX < tileCountX; tileX++)
+	{
+	  u32 minX = tileX * tileWidth;
+	  u32 onePastMaxX = minX + tileWidth;
+	  if (onePastMaxX > image.width)
+	    {
+	      onePastMaxX = image.width;
+	    }
+	  globalOffset[0]  =  minX;
+	  globalOffset[1]  =  minY;
+	  globalSize[0] = onePastMaxX - minX;
+	  globalSize[1] = onePastMaxY - minY;
+	  clEnqueueNDRangeKernel(commandQueue, kernel, 2, globalOffset, globalSize, NULL, 0, NULL, NULL);
+	}	  
+    }
   clFinish(commandQueue);  
   
-  clock_gettime(CLOCK_MONOTONIC, &finish);
+  endTimer(&rayTimer);
 
   printf(" Done!\n");
   
@@ -148,12 +191,13 @@ int main(int argc, char** argv)
       return 1;
    }
   clEnqueueReadBuffer(commandQueue, clWorld, CL_TRUE, 0, sizeof(World), world,0, NULL, NULL);
+
   
-  elapsed = (finish.tv_sec - start.tv_sec) * 1000.0;
-  elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000.0;
+  
   //finish up and print stats
+  double elapsed = getTimeElapsedMS(&rayTimer);
   printf("Took %lfms\n", elapsed);
-  printf("Total bounces: %d\n", world->bounceCount);
+  printf("Total bounces: %llu\n", world->bounceCount);
   printf("Took %lfms per bounce\n",  (double)elapsed/ world->bounceCount);
   
   writeImage(&image, fileName);

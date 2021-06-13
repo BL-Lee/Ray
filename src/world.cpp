@@ -2,7 +2,7 @@
 #include "world.h"
 #include "stdlib.h"
 
-World* initWorld()
+World* initWorld(SpatialHeirarchy* SH)
 {
   //World setup
   World* world = (World*)malloc(sizeof(World));
@@ -47,57 +47,58 @@ World* initWorld()
 
   //spheres
   Object object = {};
-  Sphere sphere;
+  u32 sphereIndex;
+  Sphere* sphere = getSphereFromWorld(world, &sphereIndex);
   
-  sphere.position = { 8.0f, 8.0f, 0.0f };
-  sphere.radius = 1.0f;
-  sphere.matIndex = 2;
+  sphere->position = { 8.0f, 8.0f, 0.0f };
+  sphere->radius = 1.0f;
+  sphere->matIndex = 2;
   
-  addSphereToObject(world, &object);
-  addSphereToWorld(world, &sphere);
-  addObjectToWorld(world, &object);
+  addSphereToObject(&object, sphereIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
 
+  sphere = getSphereFromWorld(world, &sphereIndex);
   object = {};
-  sphere.position = { -2.0f, 1.0f, 2.0f };
-  sphere.radius = 1.2f;
-  sphere.matIndex = 4;
+  sphere->position = { -2.0f, 1.0f, 2.0f };
+  sphere->radius = 1.2f;
+  sphere->matIndex = 4;
   
-  addSphereToObject(world, &object);
-  addSphereToWorld(world, &sphere);
-  addObjectToWorld(world, &object);
+  addSphereToObject(&object, sphereIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
 
+  sphere = getSphereFromWorld(world, &sphereIndex);
   object = {};
-  sphere.position = { 2.0f, 0.0f, 1.0f };
-  sphere.radius = 1.0f;
-  sphere.matIndex = 3;
+  sphere->position = { 2.0f, 0.0f, 1.0f };
+  sphere->radius = 1.0f;
+  sphere->matIndex = 3;
 
-  addSphereToObject(world, &object);
-  addSphereToWorld(world, &sphere);
-  addObjectToWorld(world, &object);
+  addSphereToObject(&object, sphereIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
 
+  sphere = getSphereFromWorld(world, &sphereIndex);
   object = {};
-  sphere.position = { 2.0f, 10.0f, 6.0f };
-  sphere.radius = 1.0f;
-  sphere.matIndex = 5;
+  sphere->position = { 2.0f, 10.0f, 6.0f };
+  sphere->radius = 1.0f;
+  sphere->matIndex = 5;
 
-  addSphereToObject(world, &object);
-  addSphereToWorld(world, &sphere);
-  addObjectToWorld(world, &object);
-
+  addSphereToObject(&object, sphereIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
   
   //triangles
   world->triangleCount = 0;
-  Triangle triangle = {};
-  object = {};
-  triangle.normal = { 0.0f, 0.0f, 1.0f };
-  triangle.v0 = { 0.0, 0.0, 0.0 };
-  triangle.v1 = { -2.0, 1.0, 2.0 };
-  triangle.v2 = { 2.0, 10.0, 6.0 };
-  triangle.matIndex = 2;
+
+  u32 triIndex;
+  Triangle* triangle = getTriangleFromWorld(world, &triIndex);
   
-  addTriangleToObject(world, &object);
-  addTriangleToWorld(world, &triangle);
-  addObjectToWorld(world, &object);
+  object = {};
+  triangle->normal = { 0.0f, 0.0f, 1.0f };
+  triangle->v0 = { 0.0, 0.0, 0.0 };
+  triangle->v1 = { -2.0, 1.0, 2.0 };
+  triangle->v2 = { 2.0, 10.0, 6.0 };
+  triangle->matIndex = 2;
+  
+  addTriangleToObject(&object, triIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
 
   u32 entropy = 0xfd1a1cb;
   for (int i = 0; i < 5; i++)
@@ -109,20 +110,17 @@ World* initWorld()
 	  randomBilateral32(&entropy) * 6.0f,
 	  randomBilateral32(&entropy) * 6.0f
 	};
-      Sphere sphere = {};
-      sphere.position = loc;
-      sphere.radius = randomUnilateral32(&entropy) + 1.0f;
-      sphere.matIndex = (randomUnilateral32(&entropy) * world->materialCount);
-      if (sphere.matIndex == 0) { sphere.matIndex = 1; }
-      if (sphere.matIndex == world->materialCount) { sphere.matIndex = world->materialCount - 1; }
-      
+      u32 sphereIndex;
+      Sphere* sphere = getSphereFromWorld(world, &sphereIndex);
+      sphere->position = loc;
+      sphere->radius = randomUnilateral32(&entropy) + 1.0f;
+      sphere->matIndex = (randomUnilateral32(&entropy) * world->materialCount);
+      if (sphere->matIndex == 0) { sphere->matIndex = 1; }
+      if (sphere->matIndex == world->materialCount) { sphere->matIndex = world->materialCount - 1; }
 
-      addSphereToObject(world, &object);
-      addSphereToWorld(world, &sphere);
-      addObjectToWorld(world, &object);
-
+      addSphereToObject(&object, sphereIndex);
+      addObjectToSpatialHeirarchy(SH, &object);
     }  
-
 
   world->bounceCount = 0;
 
@@ -155,28 +153,56 @@ void addTriangleToWorld(World* world, Triangle* triangle)
   memcpy(place, triangle, sizeof(Triangle));
   world->triangleCount++;
 }
-void addObjectToWorld(World* world, Object* object)
+void addObjectToSpatialHeirarchy(SpatialHeirarchy* SH, Object* object)
 {
-  Object* place = world->SH.objects + world->SH.objectCount;
+  Object* place = SH->objects + SH->objectCount;
   memcpy(place, object, sizeof(Object));
-  world->SH.objectCount++;
+  SH->objectCount++;
 }
 
-void addSphereToObject(World* world, Object* object)
+void addSphereToObject(Object* object, u32 index)
 {
-  object->spheres[object->sphereCount] = world->sphereCount;
+  object->spheres[object->sphereCount] = index;
   object->sphereCount++;
 }
-void addPlaneToObject(World* world, Object* object)
+void addPlaneToObject(Object* object, u32 index)
 {
-  object->planes[object->planeCount] = world->planeCount;  
+  object->planes[object->planeCount] = index;  
   object->planeCount++;
 }
-void addTriangleToObject(World* world, Object* object)
+void addTriangleToObject(Object* object, u32 index)
 {
-  object->triangles[object->triangleCount] = world->triangleCount;
+  object->triangles[object->triangleCount] = index;
   object->triangleCount++;
 }
+
+Triangle* getTriangleFromWorld(World* world, u32* index)
+{
+  Triangle* triangle = world->triangles + world->triangleCount;
+  *index = world->triangleCount;
+  #ifdef _RAY_DEBUG
+  if (world->triangleCount > WORLD_TRIANGLE_COUNT)
+    {
+      printf("ERROR: World Triangles Overflow\n");
+    }
+  #endif
+  world->triangleCount++;
+  return triangle;
+}
+Sphere* getSphereFromWorld(World* world, u32* index)
+{
+  Sphere* sphere = world->spheres + world->sphereCount;
+  *index = world->sphereCount;
+  #ifdef _RAY_DEBUG
+  if (world->sphereCount > WORLD_SPHERE_COUNT)
+    {
+      printf("ERROR: World Spheres Overflow\n");
+    }
+  #endif
+  world->sphereCount++;
+  return sphere;
+}
+
 
 /*
 
@@ -280,13 +306,13 @@ void generateSpatialHeirarchy(World* world, SpatialHeirarchy* SH)
 
   for (u32 o = 0; o < SH->objectCount; o++)
     {
-      computeExtentBounds(SH->objects + o, SH->boxes + o, world);
+      computeExtentBounds(SH->objects + o, SH->boxes + o, world, SH);
     }
 }
 
-void computeExtentBounds(Object* object, SpatialBox* box, World* world)
+void computeExtentBounds(Object* object, SpatialBox* box, World* world, SpatialHeirarchy* SH)
 {
-  SpatialHeirarchy* SH = &world->SH;
+  //SpatialHeirarchy* SH = &world->SH;
   float distance = 0.0f;
   for (u32 p = 0; p < 7; p++)
     {
@@ -322,57 +348,3 @@ void computeExtentBounds(Object* object, SpatialBox* box, World* world)
 	}
     }
 }
-/*
-void splitBox(SpatialHeirarchy* SH, SpatialBox* box, World* world, u32 axis)
-{
-  if (box->dimensions.x < 0.1 ||
-      box->dimensions.y < 0.1 ||
-      box->dimensions.z < 0.1){
-    return;
-  }
-      
-  u32 shapeCount = shapeCountInBox(box, world);
-  if (shapeCount > 900)
-    {
-      vec3 halfPositionOffset;
-      vec3 newDims = box->dimensions;
-      vec3 halfAxisVec;
-      vec3 halfAxisZeroed;
-      switch (axis)
-	{
-	case 0:
-	  halfAxisVec    = {0.5f, 1.0f, 1.0f};
-	  halfAxisZeroed = {0.5f, 0.0f, 0.0f};
-	  newDims.x /= 2.0f;
-	  break;
-	case 1:
-	  halfAxisVec    = {1.0f, 0.5f, 1.0f};
-	  halfAxisZeroed = {0.0f, 0.5f, 0.0f};
-	  newDims.y /= 2.0f;
-	  break;
-	case 2:
-	  halfAxisVec    = {1.0f, 1.0f, 0.5f};
-	  halfAxisZeroed = {0.0f, 0.0f, 0.5f};
-	  newDims.z /= 2.0f;
-	  break;
-	}
-      
-      SpatialBox* boxA = SH->boxes + SH->boxCount;
-      box->first = SH->boxCount;
-      SH->boxCount++;
-      halfPositionOffset = hadamard(box->dimensions, halfAxisZeroed);      
-      boxA->position = box->position + halfPositionOffset;     
-      boxA->dimensions = newDims;
-      //printf("Box added: %d : pos: %f %f %f dims: %f %f %f\n", SH->boxCount - 1, boxA->position.x, boxA->position.y, boxA->position.z, boxA->dimensions.x, boxA->dimensions.y, boxA->dimensions.z);
-      splitBox(SH, boxA, world, (axis + 1) % 3);
-            
-      SpatialBox* boxB = SH->boxes + SH->boxCount;      
-      box->second = SH->boxCount;
-      SH->boxCount++;
-      boxB->position = box->position - halfPositionOffset;
-      boxB->dimensions = newDims;
-      //printf("Box added: %d : pos: %f %f %f dims: %f %f %f\n", SH->boxCount - 1, boxB->position.x, boxB->position.y, boxB->position.z, boxB->dimensions.x, boxB->dimensions.y, boxB->dimensions.z);
-      splitBox(SH, boxB, world, (axis + 1) % 3);
-    }
-}
-*/

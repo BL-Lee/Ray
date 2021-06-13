@@ -4,8 +4,8 @@
 #include "world.h"
 #include "Math.h"
 
-void loadSTLShape(World* world, const char* fileName);
-void loadSTLShape(World* world, const char* fileName, vec3 offset);
+void loadSTLShape(World* world, SpatialHeirarchy* SH, const char* fileName);
+void loadSTLShape(World* world, SpatialHeirarchy* SH, const char* fileName, vec3 offset);
 
 #endif
 

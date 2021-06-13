@@ -23,6 +23,7 @@
 Image* blueNoise;
 
 void renderTile(World* world, Image image,
+		SpatialHeirarchy* SH, 
 		u32 minX, u32 onePastMaxX,
 		u32 minY, u32 onePastMaxY,
 		u32 sampleCount, Camera* camera)
@@ -35,7 +36,7 @@ void renderTile(World* world, Image image,
 	{
 	  lane_f32 filmX = laneF32FromF32(-1.0f + (2.0f * (f32)x / (f32)image.width));
 	
-	  vec3 colour = rayTrace(world, camera, &filmY, &filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);	  
+	  vec3 colour = rayTrace(world, camera, SH, &filmY, &filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);	  
 	  colour = linearToSRGB(colour);
 	  
 	  u32 bitmapColour = packRGBAtoARGB({ colour.x, colour.y, colour.z, 1.0f });
@@ -56,6 +57,7 @@ void* threadProc(void* args)
     {
       WorkOrder order = queue->queue[workIndex];
       renderTile(order.world, order.image,
+		 order.SH,
 	     order.minX, order.onePastMaxX,
 		 order.minY, order.onePastMaxY, queue->raysPerPixel, queue->camera);
       
@@ -67,7 +69,7 @@ void* threadProc(void* args)
 }
 
 //TODO: When using 8 wide lanes, lane_f32's last 4 floats get clobbered to 0 when passed by value, why?
-vec3 rayTrace(World* world, Camera* camera, lane_f32* filmYP, lane_f32* filmXP,  u32 sampleCount, u32 screenX, u32 screenY)//, u16* maskPtr)
+vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* filmYP, lane_f32* filmXP,  u32 sampleCount, u32 screenX, u32 screenY)//, u16* maskPtr)
 {
   lane_f32 filmY = *filmYP;
   lane_f32 filmX = *filmXP;
@@ -124,7 +126,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32* filmYP, lane_f32* filmXP, 
       lane_f32 totalDist;
       totalDist = 0;
 
-      SpatialHeirarchy SH = world->SH;
+      //SpatialHeirarchy SH = world->SH;
       
       //Each time, a ray can bounce this many times
       for (u32 bounceCount = 0; bounceCount < 8; bounceCount++)
@@ -136,7 +138,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32* filmYP, lane_f32* filmXP, 
       
 	  bouncesComputed += laneIncrement & laneMask;
 	  
-	  for (u32 boxIndex = 0; boxIndex < SH.objectCount; boxIndex++)
+	  for (u32 boxIndex = 0; boxIndex < SH->objectCount; boxIndex++)
 	    {
 	      lane_f32 boxHitDistNear;
 	      boxHitDistNear = -FLT_MAX;
@@ -149,7 +151,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32* filmYP, lane_f32* filmXP, 
 	      for (u32 boundingPlane = 0; boundingPlane < 7; boundingPlane++)
 		{
 		  lane_v3 planeNormal;
-		  planeNormal = SH.planeNormals[boundingPlane];
+		  planeNormal = SH->planeNormals[boundingPlane];
 		  	  
 		  lane_f32 denom = dot(planeNormal, rayDirection);
 		  lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
@@ -159,10 +161,10 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32* filmYP, lane_f32* filmXP, 
 		  //if (!MaskAllZeros(toleranceMask))
 		  {
 		    lane_f32 planeNearOffset;
-		    planeNearOffset = SH.boxes[boxIndex].planeDistances[boundingPlane][0];
+		    planeNearOffset = SH->boxes[boxIndex].planeDistances[boundingPlane][0];
 
 		    lane_f32 planeFarOffset;
-		    planeFarOffset  = SH.boxes[boxIndex].planeDistances[boundingPlane][1];
+		    planeFarOffset  = SH->boxes[boxIndex].planeDistances[boundingPlane][1];
 
 
 		    lane_f32 numerator;
@@ -191,7 +193,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32* filmYP, lane_f32* filmXP, 
 	      //at least one ray hit this box
 	      if (!MaskAllZeros(hitMask)) {
 
-		Object object = SH.objects[boxIndex];
+		Object object = SH->objects[boxIndex];
 
 		//iterate over all planes to see if they intersect
 		for (u32 i = 0; i < object.planeCount; i++)
@@ -269,7 +271,7 @@ vec3 rayTrace(World* world, Camera* camera, lane_f32* filmYP, lane_f32* filmXP, 
 		    v1 = triangle.v1;
 		    v2 = triangle.v2;
 		    //normal = triangle.normal;
-		    normal = normalize(cross(v1-v0, v2-v0));
+		    normal = triangle.normal;//normalize(cross(v1-v0, v2-v0));
 	      
 		    lane_f32 denom = dot(normal, rayDirection);
 		    lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
@@ -404,9 +406,10 @@ int main(int argc, char** argv)
   //Image setup
   Image image = allocateImage(IMAGE_WIDTH, IMAGE_HEIGHT);
   u32* out = image.pixels;
-  
-  World* world = initWorld();
-  loadSTLShape(world, "assets/models/Dodecahedron.stl");
+
+  SpatialHeirarchy SH;
+  World* world = initWorld(&SH);
+  loadSTLShape(world, &SH,  "assets/models/Dodecahedron.stl");
   Camera* camera = initCamera(image);
 
   u32 entropy = 0xf81422;
@@ -420,11 +423,11 @@ int main(int argc, char** argv)
 	  randomBilateral32(&entropy) * 5.0f
 	};
 
-      loadSTLShape(world, "assets/models/Dodecahedron.stl", loc);
+      loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
   
-  generateSpatialHeirarchy(world, &world->SH);
-  printf("Spatial Heirarchy built. #Boxes: %d\n", world->SH.objectCount);
+  generateSpatialHeirarchy(world, &SH);
+  printf("Spatial Heirarchy built. #Boxes: %d\n", SH.objectCount);
 
   
   //split into tiles
@@ -469,6 +472,7 @@ int main(int argc, char** argv)
 	  
 	  order->world = world;
 	  order->image = image;
+	  order->SH = &SH;
 	  order->minX = minX;
 	  order->onePastMaxX = onePastMaxX;
 	  order->minY = minY;
@@ -494,6 +498,7 @@ int main(int argc, char** argv)
 	{
 	  WorkOrder order = queue.queue[workIndex];
 	  renderTile(order.world, order.image,
+		     order.SH,
 		     order.minX, order.onePastMaxX,
 		     order.minY, order.onePastMaxY, queue.raysPerPixel, camera);
 	}
