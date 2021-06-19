@@ -7,7 +7,7 @@
 
 
 #ifndef LANE_WIDTH
-#define LANE_WIDTH 1
+#define LANE_WIDTH 4
 #endif
 
 #if (LANE_WIDTH == 8)
@@ -103,7 +103,12 @@ lane_u32& lane_u32::operator=(u32 A)
   *this = laneU32FromU32(A);
   return *this;
 }
-
+lane_u32 operator!=(lane_u32 A, lane_u32 B)
+{
+  lane_u32 result;
+  result = andNot(A == B, laneU32FromU32(-1));
+  return result;
+}
 
 
 

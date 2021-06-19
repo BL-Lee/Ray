@@ -20,7 +20,7 @@ World* initWorld(SpatialHeirarchy* SH)
   world->materials[2].reflectColour = { 0.0f, 0.2f, 1.0f };
   world->materials[2].scatterScale = 0.7;
 
-  world->materials[3].emitColour = {99.0f,99.0f,99.0f};
+  world->materials[3].emitColour = {40.0f,40.0f,40.0f};
   world->materials[3].reflectColour = { 0.0f, 0.0f, 0.0f };
   world->materials[3].scatterScale = 1;
     
@@ -38,18 +38,22 @@ World* initWorld(SpatialHeirarchy* SH)
 
   world->materialCount = 7;
 
+  Object object = {};
 
+  u32 planeIndex;
+  Plane* plane = getPlaneFromWorld(world, &planeIndex);
   //planes
-  world->planes[0].normal = { 0.0f, 0.0f, 1.0f };
-  world->planes[0].dist = 0.0f;
-  world->planes[0].matIndex = 1;
-  world->planeCount = 0;
+  plane->normal = { 0.0f, 0.0f, 1.0f };
+  plane->dist = 0.0f;
+  plane->matIndex = 1;
+  addPlaneToObject(&object, planeIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
 
   //spheres
-  Object object = {};
+
   u32 sphereIndex;
   Sphere* sphere = getSphereFromWorld(world, &sphereIndex);
-  
+  object = {};
   sphere->position = { 8.0f, 8.0f, 0.0f };
   sphere->radius = 1.0f;
   sphere->matIndex = 2;
@@ -68,7 +72,7 @@ World* initWorld(SpatialHeirarchy* SH)
 
   sphere = getSphereFromWorld(world, &sphereIndex);
   object = {};
-  sphere->position = { 2.0f, 0.0f, 1.0f };
+  sphere->position = { 3.0f, 0.0f, 1.0f };
   sphere->radius = 1.0f;
   sphere->matIndex = 3;
 
@@ -77,7 +81,7 @@ World* initWorld(SpatialHeirarchy* SH)
 
   sphere = getSphereFromWorld(world, &sphereIndex);
   object = {};
-  sphere->position = { 2.0f, 10.0f, 6.0f };
+  sphere->position = { 0.0f, 0.0f, 2.0f };
   sphere->radius = 1.0f;
   sphere->matIndex = 5;
 
@@ -100,7 +104,7 @@ World* initWorld(SpatialHeirarchy* SH)
   addTriangleToObject(&object, triIndex);
   addObjectToSpatialHeirarchy(SH, &object);
 
-  u32 entropy = 0xfd1a1cb;
+  u32 entropy = 0x710eaf61;
   for (int i = 0; i < 5; i++)
     {
       Object object = {};
@@ -108,7 +112,7 @@ World* initWorld(SpatialHeirarchy* SH)
 	{
 	  randomBilateral32(&entropy) * 6.0f,
 	  randomBilateral32(&entropy) * 6.0f,
-	  randomBilateral32(&entropy) * 6.0f
+	  randomUnilateral32(&entropy) * 6.0f
 	};
       u32 sphereIndex;
       Sphere* sphere = getSphereFromWorld(world, &sphereIndex);
@@ -124,6 +128,12 @@ World* initWorld(SpatialHeirarchy* SH)
 
   world->bounceCount = 0;
 
+  world->dLights[0] = {};
+  world->dLights[0].direction = normalize(vec3(1.0f,0.0f,-1.0f));
+  world->dLights[0].colour = {0.2f,0.2f,8.0f};
+
+  world->dLightCount = 1;
+  
   return world;
 }
 
@@ -201,6 +211,19 @@ Sphere* getSphereFromWorld(World* world, u32* index)
   #endif
   world->sphereCount++;
   return sphere;
+}
+Plane* getPlaneFromWorld(World* world, u32* index)
+{
+  Plane* plane = world->planes + world->planeCount;
+  *index = world->planeCount;
+  #ifdef _RAY_DEBUG
+  if (world->planeCount > WORLD_PLANE_COUNT)
+    {
+      printf("ERROR: World Planes Overflow\n");
+    }
+  #endif
+  world->planeCount++;
+  return plane;
 }
 
 
@@ -346,5 +369,14 @@ void computeExtentBounds(Object* object, SpatialBox* box, World* world, SpatialH
 	  box->planeDistances[p][0] = distance - sphere.radius;
 	  box->planeDistances[p][1] = distance + sphere.radius;
 	}
+
+      //TODO: if its axis aligned then itll be a thin plane itself
+      for (u32 i = 0; i < object->planeCount; i++)
+	{
+	  Plane plane = world->planes[object->planes[i]];
+	  box->planeDistances[p][0] = -FLT_MAX;
+	  box->planeDistances[p][1] = FLT_MAX;
+	}
+
     }
 }

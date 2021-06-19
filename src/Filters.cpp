@@ -2,6 +2,16 @@
 #include <stdlib.h>
 #include "bitmap.h"
 
+vec4 uintPixelToFloat(u32 pixel)
+{
+  vec4 out;
+  out.w += (f32)((u32)(pixel & 0xFF000000)>>24);
+  out.z += (f32)((u32)(pixel & 0x00FF0000)>>16);
+  out.y += (f32)((u32)(pixel & 0x0000FF00)>>8 );
+  out.x += (f32)((u32)(pixel & 0x000000FF)>>0 );
+  return out;
+}
+
 void edgeStoppingGaussianBlur(Image* image, u16* shapeMask)
 {
   u32* outImage = (u32*)malloc(sizeof(u32)*image->width*image->height);
@@ -54,3 +64,15 @@ void edgeStoppingGaussianBlur(Image* image, u16* shapeMask)
   free(image->pixels);
   image->pixels = outImage;
 }
+/*
+void HDRToLDR(Image* image, f32 exposure)
+{
+  for (u32 imageY = 1; imageY < image->height - 1; imageY++)
+    {
+      for (u32 imageX = 1; imageX < image->width - 1; imageX++)
+	{
+	  vec4 value = 1;
+	}
+    }
+}
+*/

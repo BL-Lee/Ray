@@ -5,6 +5,7 @@
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
 #define WORLD_TRIANGLE_COUNT 1024
+#define WORLD_DIRECTIONAL_LIGHT_COUNT 4
 #define SPATIAL_BOX_COUNT 64
 
 #include "Math.h"
@@ -76,6 +77,11 @@ typedef struct _Material
   vec3 reflectColour;
 }Material;
 
+typedef struct _DirectionalLight
+{
+  vec3 direction;
+  vec3 colour;
+}DirectionalLight;
 
 typedef struct _World
 {
@@ -83,6 +89,8 @@ typedef struct _World
   Sphere spheres[WORLD_SPHERE_COUNT];
   Material materials[WORLD_MATERIAL_COUNT];
   Triangle triangles[WORLD_TRIANGLE_COUNT];
+  DirectionalLight dLights[WORLD_DIRECTIONAL_LIGHT_COUNT];
+  int dLightCount;
   int planeCount;  
   int sphereCount;
   int materialCount;
@@ -103,6 +111,7 @@ World* initWorld(SpatialHeirarchy* SH);
 
 Triangle* getTriangleFromWorld(World* world, u32* index);
 Sphere* getSphereFromWorld(World* world, u32* index);
+Plane* getPlaneFromWorld(World* world, u32* index);
 
 
 void addMaterialToWorld(World* world, Material* mat);

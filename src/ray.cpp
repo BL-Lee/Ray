@@ -13,7 +13,7 @@
 #include "BlueNoise.cpp"
 
 #ifndef RAYS_PER_PIXEL 
- #define RAYS_PER_PIXEL 1
+ #define RAYS_PER_PIXEL 8
 #endif
 
 #define IMAGE_WIDTH 1280
@@ -21,6 +21,14 @@
 
 //u16* shapeMask = (u16*)malloc(sizeof(u16)*IMAGE_HEIGHT*IMAGE_WIDTH);
 Image* blueNoise;
+
+vec3 HDRToLDR(vec3 colour)
+{
+  colour.x /= colour.x + 1.0f;
+  colour.y /= colour.y + 1.0f;
+  colour.z /= colour.z + 1.0f;
+  return colour;
+}
 
 void renderTile(World* world, Image image,
 		SpatialHeirarchy* SH, 
@@ -36,7 +44,8 @@ void renderTile(World* world, Image image,
 	{
 	  lane_f32 filmX = laneF32FromF32(-1.0f + (2.0f * (f32)x / (f32)image.width));
 	
-	  vec3 colour = rayTrace(world, camera, SH, &filmY, &filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);	  
+	  vec3 colour = rayTrace(world, camera, SH, &filmY, &filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);
+	  //colour = HDRToLDR(colour);
 	  colour = linearToSRGB(colour);
 	  
 	  u32 bitmapColour = packRGBAtoARGB({ colour.x, colour.y, colour.z, 1.0f });
@@ -66,6 +75,223 @@ void* threadProc(void* args)
       fflush(stdout);
     }
   return NULL;
+}
+
+
+//TODO: why doesn't spatial boxes work?
+lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *Direction)
+{
+
+  lane_v3 rayOrigin = *Origin;
+  lane_v3 rayDirection = *Direction;
+  rayOrigin = rayOrigin + rayDirection * 0.1f;
+
+  lane_f32 minDist;
+  minDist = laneF32FromF32(FLT_MAX);
+
+  lane_f32 tolerance;
+  tolerance = 0.00001f;
+  lane_f32 minHitDistance;
+  minHitDistance = 0.00001f;
+
+  lane_u32 matIndex;
+  matIndex = 0;
+      /*    
+  for (u32 boxIndex = 0; boxIndex < SH->objectCount; boxIndex++)
+    {
+      lane_f32 boxHitDistNear;
+      boxHitDistNear = -FLT_MAX;
+      lane_f32 boxHitDistFar;
+      boxHitDistFar = FLT_MAX;
+
+      lane_u32 hitMask;
+      hitMask = 0xFFFFFFFF;
+
+
+      //check if this ray collides with this bounding "box"
+      for (u32 boundingPlane = 0; boundingPlane < 7; boundingPlane++)
+	{
+	  lane_v3 planeNormal;
+	  planeNormal = SH->planeNormals[boundingPlane];
+		  	  
+	  lane_f32 denom = dot(planeNormal, rayDirection);
+	  lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+	  //currently slightly faster without this condition
+	  //if (!MaskAllZeros(toleranceMask))
+	  {
+	    lane_f32 planeNearOffset;
+	    planeNearOffset = SH->boxes[boxIndex].planeDistances[boundingPlane][0];
+
+	    lane_f32 planeFarOffset;
+	    planeFarOffset  = SH->boxes[boxIndex].planeDistances[boundingPlane][1];
+
+
+	    lane_f32 numerator;
+	    numerator = dot(planeNormal, rayOrigin);
+		    
+	    lane_f32 farDist = (-planeFarOffset - numerator) / denom;
+	    lane_f32 nearDist = (-planeNearOffset - numerator) / denom;
+
+	    //conditionally swap the distances if denom is > 0
+	    lane_u32 swapMask = denom > laneF32FromF32(0.0f);
+
+	    //condiitonal swap using xor
+	    xorSwap(swapMask, &farDist,  &nearDist);
+
+	    boxHitDistNear = max(nearDist, boxHitDistNear);
+	    boxHitDistFar = min(farDist, boxHitDistFar);
+		    
+	    lane_u32 distMask = boxHitDistNear < boxHitDistFar;
+	    hitMask &= toleranceMask & distMask;
+	    if (MaskAllZeros(hitMask))
+	      {
+		break;
+	      }
+	  }
+	}
+      //at least one ray hit this box
+      if (!MaskAllZeros(hitMask)) {
+
+	//	return laneF32FromF32(5.0f);
+	//printf("Object\n");
+	Object object = SH->objects[boxIndex];
+      */
+	//iterate over all planes to see if they intersect
+      	//for (u32 i = 0; i < object.planeCount; i++)
+	  for (u32 i = 0; i < world->planeCount; i++)
+	  {
+	    //Plane plane = world->planes[object.planes[i]];
+	    Plane plane = world->planes[i];
+	    lane_v3 planeNormal;
+	    planeNormal = plane.normal;
+	  
+	    lane_f32 denom = dot(planeNormal, rayDirection);
+	    lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+	    //currently slightly faster without this condition
+	    //if (!MaskAllZeros(toleranceMask))
+	    {
+	      lane_f32 planeDist;
+	      planeDist = plane.dist;
+
+	      lane_f32 dist = (-planeDist - dot(planeNormal, rayOrigin)) / denom;
+	      lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
+	      lane_u32 hitMask = toleranceMask & distMask;
+	      if (!MaskAllZeros(hitMask))
+		{
+		  lane_u32 planeMatIndex;
+		  planeMatIndex = plane.matIndex;
+		  ConditionalAssign(&minDist,      hitMask, dist);
+		  ConditionalAssign(&matIndex,     hitMask, planeMatIndex);
+		}
+	    }
+	  }
+	//iterate over all spheres
+      	//for (u32 i = 0; i < object.sphereCount; i++)
+	  for (u32 i = 0; i < world->sphereCount; i++)
+	  {
+	    //Sphere sphere = world->spheres[object.spheres[i]];
+	    Sphere sphere = world->spheres[i];
+	    lane_v3 spherePos;
+	    spherePos = sphere.position;
+	    lane_f32 sphereRadius;
+	    sphereRadius = sphere.radius;
+	  
+	    lane_v3 relativeSpherePos = rayOrigin - spherePos;
+	    lane_f32 a = dot(rayDirection, rayDirection);
+	    lane_f32 b = 2*dot(rayDirection, relativeSpherePos);
+	    lane_f32 c = dot(relativeSpherePos, relativeSpherePos) - sphereRadius * sphereRadius;
+
+	    lane_f32 root = b*b - 4*a*c;
+	    lane_u32 rootMask = root > tolerance;	  
+	    if (!MaskAllZeros(rootMask))
+	      {
+		//lane_f32 farDist = (-b + sqrt(root)) / 2*a;	      
+		lane_f32 dist = (-b - sqrt(root)) / 2*a;
+		lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
+
+		lane_u32 hitMask = rootMask & distMask;
+		if (!MaskAllZeros(hitMask))
+		  {
+		    lane_u32 sphereMatIndex;
+		    sphereMatIndex = sphere.matIndex;
+		    ConditionalAssign(&minDist,      hitMask, dist);
+		    ConditionalAssign(&matIndex,     hitMask, sphereMatIndex);
+		  }
+	      }
+	  }
+
+	  //for (u32 i = 0; i < object.triangleCount; i++)
+		  for (u32 i = 0; i < world->triangleCount; i++)	    
+	  {
+	    //Triangle triangle = world->triangles[object.triangles[i]];
+	    Triangle triangle = world->triangles[i];
+	    lane_v3 v0;
+	    lane_v3 v1;
+	    lane_v3 v2;
+	    lane_v3 normal;
+	    v0 = triangle.v0;
+	    v1 = triangle.v1;
+	    v2 = triangle.v2;
+
+	    normal = triangle.normal;
+	      
+	    lane_f32 denom = dot(normal, rayDirection);
+	    lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+	    //currently slightly faster without this condition
+	    //if (!MaskAllZeros(toleranceMask))
+	    {
+	      lane_f32 triangleOffset; //like the planeDist but for the triangle
+	      triangleOffset = -dot(normal, v0);
+	      lane_f32 triangleDist;
+	      triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
+		
+	      lane_u32 planeHitMask;
+	      planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+	      if (!MaskAllZeros(planeHitMask))
+		{
+
+		  lane_u32 triangleHitMask;
+		  triangleHitMask = 0xFFFFFFFF;
+		  
+		  lane_v3 planePoint;
+		  planePoint = (rayDirection * triangleDist) + rayOrigin;
+
+		  lane_v3 edgePerp;
+		  
+		  lane_v3 edge0 = v1 - v0;
+		  edgePerp = cross(edge0, planePoint - v0);
+		  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
+
+		  lane_v3 edge1 = v2 - v1;
+		  edgePerp = cross(edge1, planePoint - v1);
+		  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
+
+
+		  lane_v3 edge2 = v0 - v2;
+		  edgePerp = cross(edge2, planePoint - v2);
+		  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
+
+
+		  lane_u32 hitMask = triangleHitMask & planeHitMask;
+		  					 
+		  if (!MaskAllZeros(hitMask))
+		    {
+		      lane_u32 triangleMatIndex;
+		      triangleMatIndex = triangle.matIndex;
+		      ConditionalAssign(&minDist,      hitMask, triangleDist);
+		      ConditionalAssign(&matIndex, hitMask, triangleMatIndex);
+		    }		      
+		}
+	    }
+	  }
+		  //}
+    
+  //printf("Mindist: %f\n", minDist);
+  //return minDist < laneF32FromF32(100.0f);
+	return matIndex;// == laneU32FromU32(0);
 }
 
 //TODO: When using 8 wide lanes, lane_f32's last 4 floats get clobbered to 0 when passed by value, why?
@@ -126,10 +352,8 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
       lane_f32 totalDist;
       totalDist = 0;
 
-      //SpatialHeirarchy SH = world->SH;
-      
       //Each time, a ray can bounce this many times
-      for (u32 bounceCount = 0; bounceCount < 8; bounceCount++)
+      for (u32 bounceCount = 0; bounceCount < 3; bounceCount++)
 	{	  	  
 	  lane_f32 minDist;
 	  minDist = FLT_MAX;
@@ -288,9 +512,6 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 		      planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
 		      if (!MaskAllZeros(planeHitMask))
 			{
-
-			  //matIndex = 3;
-		  
 			  lane_u32 triangleHitMask;
 			  triangleHitMask = 0xFFFFFFFF;
 		  
@@ -306,7 +527,6 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 			  lane_v3 edge1 = v2 - v1;
 			  edgePerp = cross(edge1, planePoint - v1);
 			  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
-
 
 			  lane_v3 edge2 = v0 - v2;
 			  edgePerp = cross(edge2, planePoint - v2);
@@ -330,8 +550,6 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 	      }
 	    }
 
-	
-	
 	  //Set the colour based on what we hit
 	  lane_v3 emitColour = maskLaneV3(gatherV3(world->materials, matIndex, emitColour), laneMask);
 	  laneMask = andNot((matIndex == laneU32FromU32(0)), laneMask);      
@@ -359,12 +577,32 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 	      //totally arbirary 0.4 right now, i just didnt like it at 0
 	      lane_f32 cosAttenuation = max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0.3));
 	      //printf("%f\n", cosAttenuation);
-	      //update attenuation based on reflection colour
-	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
-
 	      //setup for next bounce
 	      rayOrigin = rayOrigin + rayDirection * minDist;
 	  
+
+	      //update attenuation based on reflection colour	      
+	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
+
+	      
+	      for (u32 dlightIndex = 0; dlightIndex < world->dLightCount; dlightIndex++)
+		{
+		  DirectionalLight dlight = world->dLights[dlightIndex];
+
+		  lane_u32 inDirection = dot(bounceNormal, laneV3FromV3(dlight.direction)) < laneF32FromF32(-0.001f);
+		  if (!MaskAllZeros(inDirection)) {
+		  
+		    lane_v3 oppositeLightDir = laneV3FromV3(dlight.direction * -1.0f);
+		    lane_u32 lightMatIndex = rayCast(world, SH, &rayOrigin, &oppositeLightDir);
+		    lane_u32 hitSomething = lightMatIndex != laneU32FromU32(0);		  
+		    emitColour = laneV3FromV3(dlight.colour);
+		    ConditionalAssign(&emitColour, hitSomething, laneV3FromV3(vec3(0.0f,0.0f,0.0f)));
+		
+		    resultColour += hadamard(emitColour, attenuation);
+		  }
+		}
+	  
+	      
 	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      /*
 	      vec3 tempBounce;
@@ -379,6 +617,8 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 	      rayDirection = lerp(randomBounce, pureBounce,scatterScale);
 
 	      totalDist += minDist;
+
+
 	    }
 	}
       finalColour += HorizontalAdd(resultColour);
@@ -400,8 +640,11 @@ int main(int argc, char** argv)
     {
       fileName = "out.bmp";
     }
-  
+  #ifdef _RAY_DEBUG
+  u32 coreCount = 1;
+  #else  
   u32 coreCount = GetNumProcessors();
+  #endif
 
   //Image setup
   Image image = allocateImage(IMAGE_WIDTH, IMAGE_HEIGHT);
@@ -409,11 +652,10 @@ int main(int argc, char** argv)
 
   SpatialHeirarchy SH;
   World* world = initWorld(&SH);
-  loadSTLShape(world, &SH,  "assets/models/Dodecahedron.stl");
+  loadSTLShape(world, &SH,  "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
-
+  /*
   u32 entropy = 0xf81422;
-  
   for (int i = 0; i < 4; i++)
     {
       vec3 loc =
@@ -425,7 +667,7 @@ int main(int argc, char** argv)
 
       loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
-  
+  */
   generateSpatialHeirarchy(world, &SH);
   printf("Spatial Heirarchy built. #Boxes: %d\n", SH.objectCount);
 
