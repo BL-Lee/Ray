@@ -627,6 +627,30 @@ inline vec3 linearToSRGB(vec3 linear)
   return result;
 }
 
+//rudimentary HDR tone mapping
+//g is gamma
+vec3 HDRToLDR(vec3 colour)
+{
+  f32 lum = 0.2 * colour.x + 0.7 * colour.y + 0.07 * colour.z;
+  //  f32 lumOut = lum / (lum + 1);
+  f32 g = 1.0f;
+  f32 coeff = 1.0f;
+  f32 lumOut = coeff * pow(lum, g);
+  /*
+  colour.x = (((colour.x / lum) - 1.0f) * coeff + 1 ) * lumOut;
+  colour.y = (((colour.y / lum) - 1.0f) * coeff + 1 ) * lumOut;
+  colour.z = (((colour.z / lum) - 1.0f) * coeff + 1 ) * lumOut;
+  */
+  /*
+  colour.x = colour.x / (colour.x + 1.0f);
+    colour.y = colour.y / (colour.y + 1.0f);
+      colour.z = colour.z / (colour.z + 1.0f);
+  */
+  f32 diff = lum/lumOut;
+  colour *= diff;
+  return colour;
+}
+
 
 /*Random*/
 

@@ -1,0 +1,9 @@
+Spatial Heirarchy Built: # boxes: 16
+Config: Use GPU, 8 rays per pixel, 1280x720 image, 
+	Lens radius: 0.1000
+Initializing OpenCL...Max Local size: 65536, Max work group size: 256
+Size of spatial Heirarchy: 7796 Done!
+Ray tracing... Done!
+Took 3267.019000ms
+Total bounces: 16569416
+Took 0.000197ms per bouncs

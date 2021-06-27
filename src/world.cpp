@@ -10,7 +10,7 @@ World* initWorld(SpatialHeirarchy* SH)
 
   world->materials[0] = {};
   world->materials[0].reflectColour = {};
-  world->materials[0].emitColour = { 0.8f, 0.50f, 0.3f };
+  world->materials[0].emitColour = { 0.01f, 0.01f, 0.01f };
   
   world->materials[1] = {};
   world->materials[1].reflectColour = { 0.8f, 0.7f, 0.2f };
@@ -20,7 +20,7 @@ World* initWorld(SpatialHeirarchy* SH)
   world->materials[2].reflectColour = { 0.0f, 0.2f, 1.0f };
   world->materials[2].scatterScale = 0.7;
 
-  world->materials[3].emitColour = {40.0f,40.0f,40.0f};
+  world->materials[3].emitColour = {10.0f,10.0f,10.0f};
   world->materials[3].reflectColour = { 0.0f, 0.0f, 0.0f };
   world->materials[3].scatterScale = 1;
     
@@ -130,9 +130,16 @@ World* initWorld(SpatialHeirarchy* SH)
 
   world->dLights[0] = {};
   world->dLights[0].direction = normalize(vec3(1.0f,0.0f,-1.0f));
-  world->dLights[0].colour = {0.2f,0.2f,8.0f};
+  world->dLights[0].colour = {0.3f,0.3f,0.3f};
 
-  world->dLightCount = 1;
+
+  world->dLights[1] = {};
+  world->dLights[1].direction = normalize(vec3(0.0f,0.0f,-1.0f));
+  world->dLights[1].colour = {0.8f,0.0f,0.8f};
+
+
+
+  world->dLightCount = 2;
   
   return world;
 }

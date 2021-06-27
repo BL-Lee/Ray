@@ -3,6 +3,7 @@
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
 #define WORLD_TRIANGLE_COUNT 1024
+#define WORLD_DIRECTIONAL_LIGHT_COUNT 4
 #define SPATIAL_BOX_COUNT 64
 
 
@@ -37,6 +38,13 @@ typedef struct __attribute__((packed))_clMaterial
   float3 reflectColour;
 }clMaterial;
 
+typedef struct __attribute__((packed))_clDirectionalLight
+{
+  float3 direction;
+  float3 colour;
+}clDirectionalLight;
+
+
 typedef struct __attribute__((packed))_clObject
 {
   uint planes[1];//indices into world
@@ -69,6 +77,8 @@ typedef struct __attribute__((packed))_clWorld
   clSphere spheres[WORLD_SPHERE_COUNT];
   clMaterial materials[WORLD_MATERIAL_COUNT];
   clTriangle triangles[WORLD_TRIANGLE_COUNT];
+  clDirectionalLight dLights[WORLD_DIRECTIONAL_LIGHT_COUNT];
+  int dLightCount;
   int planeCount;
   int sphereCount;
   int materialCount;
@@ -161,6 +171,110 @@ float linearToSRGB(float linear)
   return result;  
 }
 
+uint rayCast( __global clWorld* world, __constant clSpatialHeirarchy* SH, float3 rayOrigin, float3 rayDirection)
+{
+  float minDist = FLT_MAX;
+  uint matIndex = 0;
+  float tolerance = 0.0001;
+  float minHitDistance = 0.0001;
+
+  //at least one ray hit this box
+  //iterate over all planes to see if they intersect
+  for (int i = 0; i < world->planeCount; i++)
+    {
+      clPlane plane = world->planes[i];
+      float denom = dot(plane.normal, rayDirection);
+      if( (denom > tolerance) | (denom < -tolerance))
+        {
+          float dist = (-plane.dist - dot(plane.normal, rayOrigin)) / denom;
+          if ((dist > minHitDistance) && (dist < minDist))
+            {
+              minDist = dist;
+              matIndex = plane.matIndex;
+            }
+        }
+    }
+  //iterate over all spheres
+
+  for (int i = 0; i < world->sphereCount; i++)
+    {
+      clSphere sphere = world->spheres[i];
+	  
+      float3 relativeSpherePos = rayOrigin - sphere.position;
+      float a = dot(rayDirection, rayDirection);
+      float b = 2*dot(rayDirection, relativeSpherePos);
+      float c = dot(relativeSpherePos, relativeSpherePos) - sphere.radius * sphere.radius;
+
+      float root = b*b - 4*a*c;
+      uint rootMask = root > tolerance;
+      if (rootMask)
+        {
+          float dist = (-b - sqrt(root)) / 2*a;
+          uint distMask = dist > minHitDistance & dist < minDist;
+          uint hitMask = distMask && rootMask;
+          if (hitMask)
+            {
+              minDist = dist;
+              matIndex = sphere.matIndex;
+            }
+        }
+    }
+  for (int i = 0; i < world->triangleCount; i++)
+    {
+      clTriangle triangle = world->triangles[i];
+
+      float3 v0 = triangle.v0;
+      float3 v1 = triangle.v1;
+      float3 v2 = triangle.v2;
+      float3 normal = triangle.normal;//normalize(cross(v1-v0, v2-v0));
+	      
+      float denom = dot(normal, rayDirection);
+      uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+      //if (toleranceMask)
+      {
+        float triangleOffset; //like the planeDist but for the triangle
+        triangleOffset = -dot(normal, v0);
+        float triangleDist;
+        triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
+		
+        uint planeHitMask;
+        planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+        if (planeHitMask & toleranceMask)
+          {
+            uint triangleHitMask;
+            triangleHitMask = 0x1;
+		  
+            float3 planePoint;
+            planePoint = (rayDirection * triangleDist) + rayOrigin;
+
+            float3 edgePerp;
+		  
+            float3 edge0 = v1 - v0;
+            edgePerp = cross(edge0, planePoint - v0);
+            triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+            float3 edge1 = v2 - v1;
+            edgePerp = cross(edge1, planePoint - v1);
+            triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+            float3 edge2 = v0 - v2;
+            edgePerp = cross(edge2, planePoint - v2);
+            triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+            uint hitMask = triangleHitMask && planeHitMask;
+		  					 
+            if (hitMask)
+              {
+                minDist = triangleDist;
+                matIndex = triangle.matIndex;
+              }
+          }
+      }
+    }
+  return matIndex;
+}
+
 __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __constant clSpatialHeirarchy* SHParam, uint sampleCount, __write_only image2d_t image)
 {  
   int2 pixel = {get_global_id(0), get_global_id(1)};
@@ -180,7 +294,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
   for (uint i = 0; i < sampleCount; i++)
     {
       float2 pixelOffset = {randomUnilateral32(&entropy) * camera->halfPixelWidth * 2.0,
-	                     randomUnilateral32(&entropy) * camera->halfPixelHeight * 2.0};
+        randomUnilateral32(&entropy) * camera->halfPixelHeight * 2.0};
  	      
       float3 filmPos = camera->filmCenter +
 	camera->Y * film.y * (camera->halfFilmHeight + pixelOffset.y) +
@@ -380,6 +494,24 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 
 	      //setup for next bounce
 	      rayOrigin = rayOrigin + rayDirection * minDist;
+
+              for (uint dlightIndex = 0; dlightIndex < world->dLightCount; dlightIndex++)
+		{
+		  clDirectionalLight dlight = world->dLights[dlightIndex];
+
+		  uint inDirection = dot(bounceNormal, dlight.direction) < -tolerance;
+		  if (inDirection) {
+		  
+		    float3 oppositeLightDir = -dlight.direction;
+		    uint lightMatIndex = rayCast(world, SHParam, rayOrigin, oppositeLightDir);
+		    uint hitSomething = lightMatIndex != 0;		  
+		    float3 emitColour =  dlight.colour;
+                    if (hitSomething)
+                      emitColour = float3(0.0f,0.0f,0.0f);		
+		    resultColour += emitColour * attenuation;
+		  }
+		}
+
 	  
 	      float3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      //TODO: different noise for random
@@ -390,7 +522,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 	}
       finalColour += resultColour;
     }
-  //atomic_add(&world->bounceCount, bouncesComputed);
+  atomic_add(&world->bounceCount, bouncesComputed);
   float4 outColour = {finalColour / sampleCount, 0.0}; //NOTE: BGRA
   outColour.x = linearToSRGB(outColour.x);
   outColour.y = linearToSRGB(outColour.y);

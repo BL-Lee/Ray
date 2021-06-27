@@ -22,14 +22,6 @@
 //u16* shapeMask = (u16*)malloc(sizeof(u16)*IMAGE_HEIGHT*IMAGE_WIDTH);
 Image* blueNoise;
 
-vec3 HDRToLDR(vec3 colour)
-{
-  colour.x /= colour.x + 1.0f;
-  colour.y /= colour.y + 1.0f;
-  colour.z /= colour.z + 1.0f;
-  return colour;
-}
-
 void renderTile(World* world, Image image,
 		SpatialHeirarchy* SH, 
 		u32 minX, u32 onePastMaxX,
@@ -45,7 +37,7 @@ void renderTile(World* world, Image image,
 	  lane_f32 filmX = laneF32FromF32(-1.0f + (2.0f * (f32)x / (f32)image.width));
 	
 	  vec3 colour = rayTrace(world, camera, SH, &filmY, &filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);
-	  //colour = HDRToLDR(colour);
+	  colour = HDRToLDR(colour);
 	  colour = linearToSRGB(colour);
 	  
 	  u32 bitmapColour = packRGBAtoARGB({ colour.x, colour.y, colour.z, 1.0f });
@@ -162,7 +154,9 @@ lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *D
 	  for (u32 i = 0; i < world->planeCount; i++)
 	  {
 	    //Plane plane = world->planes[object.planes[i]];
+	    
 	    Plane plane = world->planes[i];
+
 	    lane_v3 planeNormal;
 	    planeNormal = plane.normal;
 	  
@@ -185,7 +179,7 @@ lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *D
 		  ConditionalAssign(&minDist,      hitMask, dist);
 		  ConditionalAssign(&matIndex,     hitMask, planeMatIndex);
 		}
-	    }
+	      }
 	  }
 	//iterate over all spheres
       	//for (u32 i = 0; i < object.sphereCount; i++)
@@ -494,7 +488,6 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 		    v0 = triangle.v0;
 		    v1 = triangle.v1;
 		    v2 = triangle.v2;
-		    //normal = triangle.normal;
 		    normal = triangle.normal;//normalize(cross(v1-v0, v2-v0));
 	      
 		    lane_f32 denom = dot(normal, rayDirection);
@@ -576,10 +569,8 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 	      //clamp to 0-inf
 	      //totally arbirary 0.4 right now, i just didnt like it at 0
 	      lane_f32 cosAttenuation = max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0.3));
-	      //printf("%f\n", cosAttenuation);
 	      //setup for next bounce
 	      rayOrigin = rayOrigin + rayDirection * minDist;
-	  
 
 	      //update attenuation based on reflection colour	      
 	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
@@ -589,7 +580,7 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 		{
 		  DirectionalLight dlight = world->dLights[dlightIndex];
 
-		  lane_u32 inDirection = dot(bounceNormal, laneV3FromV3(dlight.direction)) < laneF32FromF32(-0.001f);
+		  lane_u32 inDirection = dot(bounceNormal, laneV3FromV3(dlight.direction)) < -tolerance;
 		  if (!MaskAllZeros(inDirection)) {
 		  
 		    lane_v3 oppositeLightDir = laneV3FromV3(dlight.direction * -1.0f);
@@ -602,7 +593,6 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 		  }
 		}
 	  
-	      
 	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      /*
 	      vec3 tempBounce;
@@ -617,8 +607,6 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 	      rayDirection = lerp(randomBounce, pureBounce,scatterScale);
 
 	      totalDist += minDist;
-
-
 	    }
 	}
       finalColour += HorizontalAdd(resultColour);
@@ -654,7 +642,7 @@ int main(int argc, char** argv)
   World* world = initWorld(&SH);
   loadSTLShape(world, &SH,  "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
-  /*
+
   u32 entropy = 0xf81422;
   for (int i = 0; i < 4; i++)
     {
@@ -667,7 +655,7 @@ int main(int argc, char** argv)
 
       loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
-  */
+
   generateSpatialHeirarchy(world, &SH);
   printf("Spatial Heirarchy built. #Boxes: %d\n", SH.objectCount);
 
