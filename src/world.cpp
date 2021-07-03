@@ -10,7 +10,7 @@ World* initWorld(SpatialHeirarchy* SH)
 
   world->materials[0] = {};
   world->materials[0].reflectColour = {};
-  world->materials[0].emitColour = { 0.01f, 0.01f, 0.01f };
+  world->materials[0].emitColour = { 0.11f, 0.11f, 0.11f };
   
   world->materials[1] = {};
   world->materials[1].reflectColour = { 0.8f, 0.7f, 0.2f };
@@ -43,12 +43,21 @@ World* initWorld(SpatialHeirarchy* SH)
   u32 planeIndex;
   Plane* plane = getPlaneFromWorld(world, &planeIndex);
   //planes
-  plane->normal = { 0.0f, 0.0f, 1.0f };
+  plane->normal = normalize(vec3( 0.0f, 0.001f, 1.0f ));
   plane->dist = 0.0f;
   plane->matIndex = 1;
   addPlaneToObject(&object, planeIndex);
   addObjectToSpatialHeirarchy(SH, &object);
 
+  /*
+  plane = getPlaneFromWorld(world, &planeIndex);
+  object = {};
+  plane->normal = { 0.0f, 0.0f, -1.0f };
+  plane->dist = 10.0f;
+  plane->matIndex = 1;
+  addPlaneToObject(&object, planeIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
+  */
   //spheres
 
   u32 sphereIndex;
@@ -87,10 +96,11 @@ World* initWorld(SpatialHeirarchy* SH)
 
   addSphereToObject(&object, sphereIndex);
   addObjectToSpatialHeirarchy(SH, &object);
-  
+
   //triangles
   world->triangleCount = 0;
 
+  /*
   u32 triIndex;
   Triangle* triangle = getTriangleFromWorld(world, &triIndex);
   
@@ -103,7 +113,8 @@ World* initWorld(SpatialHeirarchy* SH)
   
   addTriangleToObject(&object, triIndex);
   addObjectToSpatialHeirarchy(SH, &object);
-
+  */
+  /*
   u32 entropy = 0x710eaf61;
   for (int i = 0; i < 5; i++)
     {
@@ -125,16 +136,17 @@ World* initWorld(SpatialHeirarchy* SH)
       addSphereToObject(&object, sphereIndex);
       addObjectToSpatialHeirarchy(SH, &object);
     }  
-
+  */
+  //world->sphereCount = 0;
   world->bounceCount = 0;
 
   world->dLights[0] = {};
-  world->dLights[0].direction = normalize(vec3(1.0f,0.0f,-1.0f));
+  world->dLights[0].direction = normalize(vec3(-0.00000f,0.001f,-1.0f));
   world->dLights[0].colour = {0.3f,0.3f,0.3f};
 
 
   world->dLights[1] = {};
-  world->dLights[1].direction = normalize(vec3(0.0f,0.0f,-1.0f));
+  world->dLights[1].direction = normalize(vec3(1.0f,0.0f,-1.0f));
   world->dLights[1].colour = {0.8f,0.0f,0.8f};
 
 
@@ -316,7 +328,7 @@ void generateSpatialHeirarchy(World* world, SpatialHeirarchy* SH)
 void generateSpatialHeirarchy(World* world, SpatialHeirarchy* SH)
 {
   
-  for (u32 i = 0; i < 5; i++)
+  for (u32 i = 0; i < SPATIAL_BOX_COUNT; i++)
     {
       for (u32 p = 0; p < 7; p++)
 	{
@@ -326,13 +338,13 @@ void generateSpatialHeirarchy(World* world, SpatialHeirarchy* SH)
     }
     
   SH->planeNormals[0] = { 1.0f, 0.0f, 0.0f };
-    SH->planeNormals[1] = { 0.0f, 1.0f, 0.0f };
-    SH->planeNormals[2] = { 0.0f, 0.0f, 1.0f };
-    f32 sqrt3Over3 = sqrt(3.0f) / 3.0f;
-    SH->planeNormals[3] = {  sqrt3Over3 ,  sqrt3Over3 , sqrt3Over3 };
-    SH->planeNormals[4] = { -sqrt3Over3 ,  sqrt3Over3 , sqrt3Over3 };
-    SH->planeNormals[5] = { -sqrt3Over3 , -sqrt3Over3 , sqrt3Over3 };
-    SH->planeNormals[6] = {  sqrt3Over3 , -sqrt3Over3 , sqrt3Over3 };
+  SH->planeNormals[1] = { 0.0f, 1.0f, 0.0f };
+  SH->planeNormals[2] = { 0.0f, 0.0f, 1.0f };
+  f32 sqrt3Over3 = sqrt(3.0f) / 3.0f;
+  SH->planeNormals[3] = {  sqrt3Over3 ,  sqrt3Over3 , sqrt3Over3 };
+  SH->planeNormals[4] = { -sqrt3Over3 ,  sqrt3Over3 , sqrt3Over3 };
+  SH->planeNormals[5] = { -sqrt3Over3 , -sqrt3Over3 , sqrt3Over3 };
+  SH->planeNormals[6] = {  sqrt3Over3 , -sqrt3Over3 , sqrt3Over3 };
 
   for (u32 o = 0; o < SH->objectCount; o++)
     {

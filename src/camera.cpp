@@ -5,7 +5,7 @@
 Camera* initCamera(Image image)
 {
   Camera* camera = (Camera*)malloc(sizeof(Camera));
-  camera->pos = { 0.0, -10.0, 1.0 };
+  camera->pos = { 3.0, -10.0, 1.0 };
   camera->lensRadius = 0.10f;
   //aim at origin
   //aim in -z direction, local to camera

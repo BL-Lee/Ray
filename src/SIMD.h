@@ -7,7 +7,7 @@
 
 
 #ifndef LANE_WIDTH
-#define LANE_WIDTH 4
+#define LANE_WIDTH 1
 #endif
 
 #if (LANE_WIDTH == 8)

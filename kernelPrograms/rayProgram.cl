@@ -4,7 +4,7 @@
 #define WORLD_MATERIAL_COUNT 8
 #define WORLD_TRIANGLE_COUNT 1024
 #define WORLD_DIRECTIONAL_LIGHT_COUNT 4
-#define SPATIAL_BOX_COUNT 64
+#define SPATIAL_BOX_COUNT 32
 
 
 typedef struct __attribute__((packed))_clSphere
@@ -65,7 +65,7 @@ typedef struct __attribute__((packed))_clSpatialBox
 
 typedef struct __attribute__((packed))
 {
-  clSpatialBox boxes[32];
+  clSpatialBox boxes[SPATIAL_BOX_COUNT];
   clObject objects[32];
   float3 planeNormals[7];
   uint objectCount;
@@ -171,107 +171,164 @@ float linearToSRGB(float linear)
   return result;  
 }
 
+
+//get the matIndex of the first thing we hit, not necessarily the closest one
 uint rayCast( __global clWorld* world, __constant clSpatialHeirarchy* SH, float3 rayOrigin, float3 rayDirection)
 {
   float minDist = FLT_MAX;
   uint matIndex = 0;
-  float tolerance = 0.0001;
-  float minHitDistance = 0.0001;
-
-  //at least one ray hit this box
-  //iterate over all planes to see if they intersect
-  for (int i = 0; i < world->planeCount; i++)
+  float tolerance = 0.00001;
+  float minHitDistance = 0.00001;
+  //check which spatial box to iterate through
+  for (uint boxIndex = 0; boxIndex < SH->objectCount; boxIndex++)
     {
-      clPlane plane = world->planes[i];
-      float denom = dot(plane.normal, rayDirection);
-      if( (denom > tolerance) | (denom < -tolerance))
+      float boxHitDistNear;
+      boxHitDistNear = -FLT_MAX;
+      float boxHitDistFar;
+      boxHitDistFar = FLT_MAX;
+
+      uint hitMask;
+      hitMask = 0xFFFFFFFF;
+      //check if this ray collides with this bounding "box"
+      for (uint boundingPlane = 0; boundingPlane < 7; boundingPlane++)
         {
-          float dist = (-plane.dist - dot(plane.normal, rayOrigin)) / denom;
-          if ((dist > minHitDistance) && (dist < minDist))
+          float3 planeNormal;
+          planeNormal = SH->planeNormals[boundingPlane];
+		  	  
+          float denom = dot(planeNormal, rayDirection);
+                  
+          float planeNearOffset;
+          planeNearOffset = SH->boxes[boxIndex].planeDistances[boundingPlane][0];
+
+          float planeFarOffset;
+          planeFarOffset  = SH->boxes[boxIndex].planeDistances[boundingPlane][1];
+
+          float numerator;
+          numerator = dot(planeNormal, rayOrigin);
+		    
+          float farDist = (-planeFarOffset - numerator) / denom;
+          float nearDist = (-planeNearOffset - numerator) / denom;
+
+          //conditionally swap the distances if denom is > 0
+          if ( denom >= 0.0 )
             {
-              minDist = dist;
-              matIndex = plane.matIndex;
+              float temp = farDist;
+              farDist = nearDist;
+              nearDist = temp;
+            }
+
+          boxHitDistNear = max(nearDist, boxHitDistNear);
+          boxHitDistFar = min(farDist, boxHitDistFar);
+		    
+          uint distMask = boxHitDistNear < boxHitDistFar;
+          hitMask &= distMask;
+          if (!hitMask)
+            {
+              break;
             }
         }
-    }
-  //iterate over all spheres
 
-  for (int i = 0; i < world->sphereCount; i++)
-    {
-      clSphere sphere = world->spheres[i];
-	  
-      float3 relativeSpherePos = rayOrigin - sphere.position;
-      float a = dot(rayDirection, rayDirection);
-      float b = 2*dot(rayDirection, relativeSpherePos);
-      float c = dot(relativeSpherePos, relativeSpherePos) - sphere.radius * sphere.radius;
+      //at least one ray hit this box
+      if (hitMask) {
 
-      float root = b*b - 4*a*c;
-      uint rootMask = root > tolerance;
-      if (rootMask)
-        {
-          float dist = (-b - sqrt(root)) / 2*a;
-          uint distMask = dist > minHitDistance & dist < minDist;
-          uint hitMask = distMask && rootMask;
-          if (hitMask)
-            {
-              minDist = dist;
-              matIndex = sphere.matIndex;
-            }
-        }
-    }
-  for (int i = 0; i < world->triangleCount; i++)
-    {
-      clTriangle triangle = world->triangles[i];
-
-      float3 v0 = triangle.v0;
-      float3 v1 = triangle.v1;
-      float3 v2 = triangle.v2;
-      float3 normal = triangle.normal;//normalize(cross(v1-v0, v2-v0));
-	      
-      float denom = dot(normal, rayDirection);
-      uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
-
-      //if (toleranceMask)
-      {
-        float triangleOffset; //like the planeDist but for the triangle
-        triangleOffset = -dot(normal, v0);
-        float triangleDist;
-        triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
-		
-        uint planeHitMask;
-        planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
-        if (planeHitMask & toleranceMask)
+        clObject object = SH->objects[boxIndex];
+          
+        //iterate over all planes to see if they intersect
+        for (int i = 0; i < object.planeCount; i++)
           {
-            uint triangleHitMask;
-            triangleHitMask = 0x1;
-		  
-            float3 planePoint;
-            planePoint = (rayDirection * triangleDist) + rayOrigin;
-
-            float3 edgePerp;
-		  
-            float3 edge0 = v1 - v0;
-            edgePerp = cross(edge0, planePoint - v0);
-            triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-            float3 edge1 = v2 - v1;
-            edgePerp = cross(edge1, planePoint - v1);
-            triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-            float3 edge2 = v0 - v2;
-            edgePerp = cross(edge2, planePoint - v2);
-            triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-            uint hitMask = triangleHitMask && planeHitMask;
-		  					 
-            if (hitMask)
+            clPlane plane = world->planes[object.planes[i]];
+            float denom = dot(plane.normal, rayDirection);
+            //if( (denom > tolerance) | (denom < -tolerance))
               {
-                minDist = triangleDist;
-                matIndex = triangle.matIndex;
+                float dist = (-plane.dist - dot(plane.normal, rayOrigin)) / denom;
+                if ((dist > minHitDistance) & (dist < minDist))
+                  {
+                    matIndex = plane.matIndex;
+                    return matIndex;
+                  }
               }
+          }
+        //iterate over all spheres
+        for (int i = 0; i < object.sphereCount; i++)
+          {
+            clSphere sphere = world->spheres[object.spheres[i]];
+	  
+            float3 relativeSpherePos = rayOrigin - sphere.position;
+            float a = dot(rayDirection, rayDirection);
+            float b = 2*dot(rayDirection, relativeSpherePos);
+            float c = dot(relativeSpherePos, relativeSpherePos) - sphere.radius * sphere.radius;
+
+            float root = b*b - 4*a*c;
+            uint rootMask = root > tolerance;
+            if (rootMask)
+              {
+                float dist = (-b - sqrt(root)) / 2*a;
+                uint distMask = dist > minHitDistance & dist < minDist;
+                uint hitMask = distMask && rootMask;
+                if (hitMask)
+                  {
+                    matIndex = sphere.matIndex;
+                    return matIndex;
+                  }
+              }
+          }
+        for (int i = 0; i < object.triangleCount; i++)
+          {
+            clTriangle triangle = world->triangles[object.triangles[i]];
+
+            float3 v0 = triangle.v0;
+            float3 v1 = triangle.v1;
+            float3 v2 = triangle.v2;
+            //v2 = triangle.normal;
+            float3 normal = triangle.normal;//normalize(cross(v1-v0, v2-v0));
+	      
+            float denom = dot(normal, rayDirection);
+            uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+            //if (toleranceMask)
+            {
+              float triangleOffset; //like the planeDist but for the triangle
+              triangleOffset = -dot(normal, v0);
+              float triangleDist;
+              triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
+		
+              uint planeHitMask;
+              planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+              if (planeHitMask & toleranceMask)
+                {
+                  uint triangleHitMask;
+                  triangleHitMask = 0x1;
+		  
+                  float3 planePoint;
+                  planePoint = (rayDirection * triangleDist) + rayOrigin;
+
+                  float3 edgePerp;
+		  
+                  float3 edge0 = v1 - v0;
+                  edgePerp = cross(edge0, planePoint - v0);
+                  triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+                  float3 edge1 = v2 - v1;
+                  edgePerp = cross(edge1, planePoint - v1);
+                  triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+                  float3 edge2 = v0 - v2;
+                  edgePerp = cross(edge2, planePoint - v2);
+                  triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+                  uint hitMask = triangleHitMask && planeHitMask;
+		  					 
+                  if (hitMask)
+                    {
+                      matIndex = triangle.matIndex;
+                      return matIndex;
+                    }
+                }
+            }
           }
       }
     }
+
   return matIndex;
 }
 
@@ -310,7 +367,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
       float3 resultColour = {0.0,0.0,0.0};
       float3 attenuation = {1.0f,1.0f,1.0f};//how much the colour changes from the bounced material
       //Each time, a ray can bounce this many times
-      for (uint bounceCount = 0; bounceCount < 8; bounceCount++)
+      for (uint bounceCount = 0; bounceCount < 3; bounceCount++)
 	{	                   
 	  float minDist = FLT_MAX;
 	  uint matIndex = 0;
@@ -333,7 +390,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 		  planeNormal = SH.planeNormals[boundingPlane];
 		  	  
 		  float denom = dot(planeNormal, rayDirection);
-		  uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
+                  
                   float planeNearOffset;
                   planeNearOffset = SH.boxes[boxIndex].planeDistances[boundingPlane][0];
 
@@ -347,7 +404,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   float nearDist = (-planeNearOffset - numerator) / denom;
 
                   //conditionally swap the distances if denom is > 0
-                  if ( denom > 0.0 )
+                  if ( denom >= 0.0 )
                     {
                       float temp = farDist;
                       farDist = nearDist;
@@ -358,9 +415,10 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   boxHitDistFar = min(farDist, boxHitDistFar);
 		    
                   uint distMask = boxHitDistNear < boxHitDistFar;
-                  hitMask &= toleranceMask & distMask;
+                  hitMask &= distMask;
                   if (!hitMask)
                     {
+                      //TODO: try taking out break
                       break;
                     }
                 }
@@ -372,12 +430,10 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
           
                 //iterate over all planes to see if they intersect
                 for (int i = 0; i < object.planeCount; i++)
-                //for (int i = 0; i < world->planeCount; i++)
                   {
                     clPlane plane = world->planes[object.planes[i]];
-                    //clPlane plane = world->planes[i];
                     float denom = dot(plane.normal, rayDirection);
-                    if( (denom > tolerance) | (denom < -tolerance))
+                    //if( (denom > tolerance) | (denom < -tolerance))
                       {
                         float dist = (-plane.dist - dot(plane.normal, rayOrigin)) / denom;
                         if ((dist > minHitDistance) && (dist < minDist))
@@ -390,10 +446,8 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   }
                 //iterate over all spheres
                 for (int i = 0; i < object.sphereCount; i++)
-                  //for (int i = 0; i < world->sphereCount; i++)
                   {
                     clSphere sphere = world->spheres[object.spheres[i]];
-                    //clSphere sphere = world->spheres[i];
 	  
                     float3 relativeSpherePos = rayOrigin - sphere.position;
                     float a = dot(rayDirection, rayDirection);
@@ -402,7 +456,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 
                     float root = b*b - 4*a*c;
                     uint rootMask = root > tolerance;
-                    if (rootMask)
+                    //if (rootMask)
                       {
                         float dist = (-b - sqrt(root)) / 2*a;
                         uint distMask = dist > minHitDistance & dist < minDist;
@@ -416,10 +470,8 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                       }
                   }
           for (int i = 0; i < object.triangleCount; i++)
-            //for (int i = 0; i < world->triangleCount; i++)	    
                   {
                     clTriangle triangle = world->triangles[object.triangles[i]];
-                    //clTriangle triangle = world->triangles[i];
 
                     float3 v0 = triangle.v0;
                     float3 v1 = triangle.v1;
@@ -477,7 +529,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
         
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something
-	  resultColour += mat.emitColour * attenuation; // does hadamard product
+          resultColour += mat.emitColour * attenuation; // does hadamard product
 	  if (!matIndex)
 	    {
 	      break;
@@ -486,7 +538,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 	    {
 	      //add any colour this object emits, times the attenuation
 	      //clamp to 0-inf
-	      float cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), 0.4);
+	      float cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), 0.3);
 
 	     
 	      //update attenuation based on reflection colour
@@ -503,15 +555,17 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 		  if (inDirection) {
 		  
 		    float3 oppositeLightDir = -dlight.direction;
-		    uint lightMatIndex = rayCast(world, SHParam, rayOrigin, oppositeLightDir);
+                    float3 shadowRayOrigin = rayOrigin + bounceNormal * 0.01f;                    
+		    uint lightMatIndex = rayCast(world, SHParam, shadowRayOrigin, oppositeLightDir);
+
 		    uint hitSomething = lightMatIndex != 0;		  
-		    float3 emitColour =  dlight.colour;
+		    float3 emitColour =  dlight.colour;// * !hitSomething;
                     if (hitSomething)
-                      emitColour = float3(0.0f,0.0f,0.0f);		
+                      emitColour = world->materials[0].emitColour;
 		    resultColour += emitColour * attenuation;
+                    bouncesComputed++;
 		  }
 		}
-
 	  
 	      float3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      //TODO: different noise for random

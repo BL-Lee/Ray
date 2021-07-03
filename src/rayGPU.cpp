@@ -57,10 +57,10 @@ int main(int argc, char** argv)
 
   SpatialHeirarchy SH;
   World* world = initWorld(&SH);
-  loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl");
+  loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
-    u32 entropy = 0xfae1;
-  for (int i = 0; i < 4; i++)
+    u32 entropy = 0xf81422;
+  for (int i = 0; i < 3; i++)
     {
       vec3 loc =
 	{
@@ -137,21 +137,23 @@ int main(int argc, char** argv)
   fflush(stdout);
   
   //render
-  Timer rayTimer;
-  startTimer(&rayTimer);
   
   /*
     clEnqueueNDRangeKernel(commandQueue, kernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);*/
   
   //If we don't split it into different workers for big jobs then the GPU will take too long and the watchdog will kill the rendering
   //split into tiles
-  u32 tileWidth = 64;//image.width / coreCount;
+  u32 tileWidth = 256;//image.width / coreCount;
   u32 tileHeight = tileWidth;
   //biased so that it goes over, so you dont have an empty region
   u32 tileCountX = (image.width + tileWidth - 1) / tileWidth;
   u32 tileCountY = (image.height + tileHeight - 1) / tileHeight;
   size_t globalOffset[2];
   size_t globalSize[2];
+
+  Timer rayTimer;
+  startTimer(&rayTimer);
+
   for (u32 tileY = 0; tileY < tileCountY; tileY++)
     {
       u32 minY = tileY * tileHeight;
@@ -198,7 +200,7 @@ int main(int argc, char** argv)
   double elapsed = getTimeElapsedMS(&rayTimer);
   printf("Took %lfms\n", elapsed);
   printf("Total bounces: %llu\n", world->bounceCount);
-  printf("Took %lfms per bounce\n",  (double)elapsed/ world->bounceCount);
+  printf("Took %lfms per bounce\n",  (double)elapsed / world->bounceCount);
   
   writeImage(&image, fileName);
   

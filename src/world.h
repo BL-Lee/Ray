@@ -6,7 +6,7 @@
 #define WORLD_MATERIAL_COUNT 8
 #define WORLD_TRIANGLE_COUNT 1024
 #define WORLD_DIRECTIONAL_LIGHT_COUNT 4
-#define SPATIAL_BOX_COUNT 64
+#define SPATIAL_BOX_COUNT 32
 
 #include "Math.h"
 #include "float.h"
@@ -40,7 +40,7 @@ typedef struct _SpatialBox
 
 typedef struct
 {
-  SpatialBox boxes[32];
+  SpatialBox boxes[SPATIAL_BOX_COUNT];
   Object objects[32];
   vec3 planeNormals[7];
   u32 objectCount = 0;

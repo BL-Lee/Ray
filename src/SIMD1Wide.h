@@ -40,7 +40,7 @@ void xorSwap(lane_u32 condition, lane_f32* A, lane_f32* B)
 }
 lane_f32 xorLaneF32(lane_f32 A, lane_f32 B)
 {
-  return (lane_f32)(((*(int*)&A)) ^ (*(int*)&B));
+  return (lane_f32)(((*(u32*)&A)) ^ (*(u32*)&B));
 }
 
 
@@ -82,7 +82,10 @@ vec3 HorizontalAdd(lane_v3 A)
 }
 lane_u32 andNot(lane_u32 A, lane_u32 B)
 {
-  return (~A) & (B);
+  //lane_u32 result = (!A) && (B);
+  //result = result ? 0xFFFFFFFF : 0;
+  //return result;
+  return (!A) && B;
 }
 
 lane_f32 gatherF32_(void* basePointer, u32 stride, lane_u32 indices)
@@ -98,9 +101,15 @@ lane_v3 gatherV3_(void* basePointer, u32 stride, lane_u32 indices)
 
 lane_f32 maskLaneF32(lane_f32 target, lane_u32 mask)
 {
+  if (mask)
+    return target;
+  return 0;
+  /*
+  mask = mask ? 0xFFFFFFFF : 0x0;
   lane_u32 uresult = mask & *(lane_u32*)&target;
   lane_f32 result = *(lane_f32*)&uresult;
   return result;
+  */
 }
 
 lane_v3 maskLaneV3(lane_v3 target, lane_u32 mask)
