@@ -626,13 +626,13 @@ int main(int argc, char** argv)
   Image image = allocateImage(IMAGE_WIDTH, IMAGE_HEIGHT);
   u32* out = image.pixels;
 
-  SpatialHeirarchy SH;
+  SpatialHeirarchy SH = {};
   World* world = initWorld(&SH);
   loadSTLShape(world, &SH,  "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
 
   u32 entropy = 0xf81422;
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 8; i++)
     {
       vec3 loc =
 	{
