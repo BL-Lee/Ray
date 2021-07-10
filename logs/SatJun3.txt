@@ -1,0 +1,14 @@
+Spatial Heirarchy built.
+	20 Objects
+	325 Triangles
+	9 Spheres
+	1 Planes
+	2 Directional Lights
+Config: Use CPU, 4 cores, 128 rays per pixel
+	1280x720 image, 64x64 tiles at 16k/tile
+	Lane Width: 8
+	Lens radius: 0.1000
+Raytracing...100%
+Took 19118.772000ms
+Total bounces: 440303074
+Took 0.000043ms per bounce

@@ -10,7 +10,7 @@
 #include "timer.h"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 8
+ #define RAYS_PER_PIXEL 16
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -57,7 +57,7 @@ int main(int argc, char** argv)
 
   SpatialHeirarchy SH = {};
   World* world = initWorld(&SH);
-  loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
+  //loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
     u32 entropy = 0xf81422;
   for (int i = 0; i < 8; i++)
@@ -72,17 +72,23 @@ int main(int argc, char** argv)
       loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
 
+  printf("Building Spatial Heirarchy...");
   
+  Timer SHTimer;
+  startTimer(&SHTimer);
   generateSpatialHeirarchy(world, &SH);
-  printf("Spatial Heirarchy Built: # boxes: %d\n", SH.objectCount);
-    
-  //size_t globalWorkSize[2] = {image.width, image.height};
-  //size_t localWorkSize[2] = {8,8};
+  endTimer(&SHTimer);
   
-  printf("Config: Use GPU, %d rays per pixel, %dx%d image, \n\tLens radius: %.4f\n",
+  printf("Done. Took %fms\n", getTimeElapsedMS(&SHTimer));
+  printf("\t%d Objects\n\t%d Triangles\n\t%d Spheres\n\t%d Planes\n\t%d Directional Lights\n\t%d Debug Lines\n", SH.objectCount, world->triangleCount, world->sphereCount, world->planeCount, world->dLightCount, world->lineCount);
+        
+  u32 tileWidth = 256;//image.width / coreCount;
+  u32 tileHeight = tileWidth;
+  
+  printf("Config: Use GPU, %d rays per pixel\n\t%dx%d image, %dx%d tiles at %dk/tile\n\tLens radius: %.4f\n",
 	 RAYS_PER_PIXEL,
 	 IMAGE_WIDTH, IMAGE_HEIGHT,
-	 //localWorkSize[0], localWorkSize[1],
+	 tileWidth, tileHeight, tileWidth*tileHeight*4/1024,
 	 camera->lensRadius);
 
  
@@ -143,8 +149,6 @@ int main(int argc, char** argv)
   
   //If we don't split it into different workers for big jobs then the GPU will take too long and the watchdog will kill the rendering
   //split into tiles
-  u32 tileWidth = 256;//image.width / coreCount;
-  u32 tileHeight = tileWidth;
   //biased so that it goes over, so you dont have an empty region
   u32 tileCountX = (image.width + tileWidth - 1) / tileWidth;
   u32 tileCountY = (image.height + tileHeight - 1) / tileHeight;

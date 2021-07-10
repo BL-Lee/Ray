@@ -4,6 +4,7 @@
 #define WORLD_MATERIAL_COUNT 8
 #define WORLD_TRIANGLE_COUNT 1024
 #define WORLD_DIRECTIONAL_LIGHT_COUNT 4
+#define WORLD_LINE_COUNT 128
 #define SPATIAL_BOX_COUNT 32
 
 
@@ -30,6 +31,12 @@ typedef struct __attribute__((packed))_clTriangle
   int matIndex;
 }clTriangle;
 
+typedef struct __attribute__((packed))_cl_Line
+{
+  float3 origin;
+  float3 direction;
+  float length;
+}clLine;
 
 typedef struct __attribute__((packed))_clMaterial
 {
@@ -78,11 +85,13 @@ typedef struct __attribute__((packed))_clWorld
   clMaterial materials[WORLD_MATERIAL_COUNT];
   clTriangle triangles[WORLD_TRIANGLE_COUNT];
   clDirectionalLight dLights[WORLD_DIRECTIONAL_LIGHT_COUNT];
+  clLine lines[WORLD_LINE_COUNT];
   int dLightCount;
   int planeCount;
   int sphereCount;
   int materialCount;
   int triangleCount;
+  int lineCount;
   uint totalTileCount;
   volatile uint bounceCount;
   volatile uint pad;
@@ -232,7 +241,7 @@ uint rayCast( __global clWorld* world, __constant clSpatialHeirarchy* SH, float3
       if (hitMask) {
 
         clObject object = SH->objects[boxIndex];
-          
+
         //iterate over all planes to see if they intersect
         for (int i = 0; i < object.planeCount; i++)
           {
@@ -271,7 +280,7 @@ uint rayCast( __global clWorld* world, __constant clSpatialHeirarchy* SH, float3
                     return matIndex;
                   }
               }
-          }
+              }
         for (int i = 0; i < object.triangleCount; i++)
           {
             clTriangle triangle = world->triangles[object.triangles[i]];
@@ -427,7 +436,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 	      if (hitMask) {
 
 		clObject object = SH.objects[boxIndex];
-          
+
                 //iterate over all planes to see if they intersect
                 for (int i = 0; i < object.planeCount; i++)
                   {
@@ -444,6 +453,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                           }
                       }
                   }
+
                 //iterate over all spheres
                 for (int i = 0; i < object.sphereCount; i++)
                   {
@@ -469,7 +479,8 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                           }
                       }
                   }
-          for (int i = 0; i < object.triangleCount; i++)
+
+                for (int i = 0; i < object.triangleCount; i++)
                   {
                     clTriangle triangle = world->triangles[object.triangles[i]];
 
@@ -477,7 +488,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                     float3 v1 = triangle.v1;
                     float3 v2 = triangle.v2;
                     //v2 = triangle.normal;
-                    float3 normal = triangle.normal;//normalize(cross(v1-v0, v2-v0));
+                    float3 normal = triangle.normal;
 	      
                     float denom = dot(normal, rayDirection);
                     uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
@@ -524,8 +535,41 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                         }
                     }
                   }
-           }
+              }
           }
+	  if (bounceCount == 0) {
+	    for (uint i = 0; i < world->lineCount; i++)
+	      {
+		clLine line = world->lines[i];
+		float3 lineDir;
+		lineDir = line.direction;
+		float3 lineOrigin;
+		lineOrigin = line.origin;
+
+		float3 perpDir = cross(rayDirection, lineDir);
+
+		float3 n2 = cross(lineDir, perpDir);
+		float3 c1 = rayOrigin + rayDirection * (dot(lineOrigin - rayOrigin, n2) / dot(rayDirection, n2));
+
+		float3 n1 = cross(rayDirection, perpDir);
+		float3 c2 = lineOrigin + lineDir * (dot(rayOrigin - lineOrigin, n1) / dot(lineDir, n1));
+
+		float dist = length(c2 - c1);
+		float3 rayOriginToPoint = c1 - rayOrigin;
+		float3 lineOriginToPoint = c2 - lineOrigin;
+
+		uint distMask = dist < 0.01;
+		
+		uint minDistMask = (length(rayOriginToPoint) < minDist) & (dot(rayDirection, rayOriginToPoint) > 0.0);
+		uint lengthMask = (length(lineOriginToPoint) < line.length) & (dot(lineDir, lineOriginToPoint) > 0.0f);
+		
+		uint hitMask = distMask & minDistMask & lengthMask;
+
+		if (hitMask) {
+		  matIndex = 3;
+		}
+	      }
+	  }
         
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something

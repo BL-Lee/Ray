@@ -6,6 +6,7 @@
 #define WORLD_MATERIAL_COUNT 8
 #define WORLD_TRIANGLE_COUNT 1024
 #define WORLD_DIRECTIONAL_LIGHT_COUNT 4
+#define WORLD_LINE_COUNT 128
 #define SPATIAL_BOX_COUNT 32
 
 #include "Math.h"
@@ -70,6 +71,14 @@ typedef struct _Triangle
   int matIndex;
 }Triangle;
 
+typedef struct _Line
+{
+  vec3 origin;
+  vec3 direction;
+  f32 length;
+}Line;
+
+
 typedef struct _Material
 {
   float scatterScale;
@@ -90,11 +99,13 @@ typedef struct _World
   Material materials[WORLD_MATERIAL_COUNT];
   Triangle triangles[WORLD_TRIANGLE_COUNT];
   DirectionalLight dLights[WORLD_DIRECTIONAL_LIGHT_COUNT];
+  Line lines[WORLD_LINE_COUNT];
   int dLightCount;
   int planeCount;  
   int sphereCount;
   int materialCount;
   int triangleCount;
+  int lineCount;
   u32 totalTileCount;
   volatile u64 bounceCount;
   volatile u64 tilesCompleted;

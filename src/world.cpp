@@ -2,6 +2,7 @@
 #include "world.h"
 #include "stdlib.h"
 
+
 World* initWorld(SpatialHeirarchy* SH)
 {
   //World setup
@@ -100,22 +101,21 @@ World* initWorld(SpatialHeirarchy* SH)
   //triangles
   world->triangleCount = 0;
 
-  /*
   u32 triIndex;
-  Triangle* triangle = getTriangleFromWorld(world, &triIndex);
-  
+  //Triangle* triangle = getTriangleFromWorld(world, &triIndex);
+  /*
   object = {};
-  triangle->normal = { 0.0f, 0.0f, 1.0f };
-  triangle->v0 = { 0.0, 0.0, 0.0 };
-  triangle->v1 = { -2.0, 1.0, 2.0 };
-  triangle->v2 = { 2.0, 10.0, 6.0 };
-  triangle->matIndex = 2;
+  triangle->v0 = { -1000.0, -1000.0, 1.0 };
+  triangle->v1 = { 1000.0, -1000.0, 0.0 };
+  triangle->v2 = { 500.0, 1000.0, 0.0 };
+  triangle->normal = normalize(cross(triangle->v1-triangle->v0, triangle->v2-triangle->v0));
+  triangle->matIndex = 1;
   
   addTriangleToObject(&object, triIndex);
   addObjectToSpatialHeirarchy(SH, &object);
   */
-  /*
-  u32 entropy = 0x710eaf61;
+
+  u32 entropy = 0x710af89;
   for (int i = 0; i < 5; i++)
     {
       Object object = {};
@@ -136,7 +136,7 @@ World* initWorld(SpatialHeirarchy* SH)
       addSphereToObject(&object, sphereIndex);
       addObjectToSpatialHeirarchy(SH, &object);
     }  
-  */
+
   //world->sphereCount = 0;
   world->bounceCount = 0;
 
@@ -149,7 +149,11 @@ World* initWorld(SpatialHeirarchy* SH)
   world->dLights[1].direction = normalize(vec3(1.0f,0.0f,-1.0f));
   world->dLights[1].colour = {0.8f,0.0f,0.8f};
 
-
+  Line* line = world->lines;
+  line->origin = {2.0f,0.0f,2.0f};
+  line->direction = normalize(vec3(0.0f,0.0f,1.0f));
+  line->length = 2.0f;
+  world->lineCount = 1;
 
   world->dLightCount = 2;
   

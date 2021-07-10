@@ -13,7 +13,10 @@
 #include "BlueNoise.cpp"
 
 #ifndef RAYS_PER_PIXEL 
- #define RAYS_PER_PIXEL 4
+ #define RAYS_PER_PIXEL 8
+#endif
+#ifndef DEBUG_LINES
+ #define DEBUG_LINES 1
 #endif
 
 
@@ -519,11 +522,44 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 			}
 		    }
 		  }
-	
+		
 	      }
 	    }
+	  #if DEBUG_LINES
+	  if (bounceCount == 0) {
+	    for (u32 i = 0; i < world->lineCount; i++)
+	      {
+		Line line = world->lines[i];
+		lane_v3 lineDir;
+		lineDir = line.direction;
+		lane_v3 lineOrigin;
+		lineOrigin = line.origin;
 
-	  
+		lane_v3 perpDir = cross(rayDirection, lineDir);
+
+		lane_v3 n2 = cross(lineDir, perpDir);
+		lane_v3 c1 = rayOrigin + rayDirection * (dot(lineOrigin - rayOrigin, n2) / dot(rayDirection, n2));
+
+		lane_v3 n1 = cross(rayDirection, perpDir);
+		lane_v3 c2 = lineOrigin + lineDir * (dot(rayOrigin - lineOrigin, n1) / dot(lineDir, n1));
+
+		lane_f32 dist = length(c2 - c1);
+		lane_v3 rayOriginToPoint = c1 - rayOrigin;
+		lane_v3 lineOriginToPoint = c2 - lineOrigin;
+
+		lane_u32 distMask = dist < laneF32FromF32(0.01f);
+		
+		lane_u32 minDistMask = (length(rayOriginToPoint) < minDist) & (dot(rayDirection, rayOriginToPoint) > laneF32FromF32(0.0f));
+		lane_u32 lengthMask = (length(lineOriginToPoint) < laneF32FromF32(line.length)) & (dot(lineDir, lineOriginToPoint) > laneF32FromF32(0.0f));
+		
+		lane_u32 hitMask = distMask & minDistMask & lengthMask;
+
+		if (!MaskAllZeros(hitMask)) {
+		  ConditionalAssign(&matIndex,     hitMask, laneU32FromU32(3));
+		}
+	      }
+	  }
+#endif
 	  //Set the colour based on what we hit
 	  lane_v3 emitColour = maskLaneV3(gatherV3(world->materials, matIndex, emitColour), laneMask);
 	  laneMask = andNot((matIndex == laneU32FromU32(0)), laneMask);      
@@ -628,7 +664,7 @@ int main(int argc, char** argv)
 
   SpatialHeirarchy SH = {};
   World* world = initWorld(&SH);
-  loadSTLShape(world, &SH,  "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
+  //loadSTLShape(world, &SH,  "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
 
   u32 entropy = 0xf81422;
@@ -643,10 +679,16 @@ int main(int argc, char** argv)
 
       loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
-
+  printf("Building Spatial Heirarchy...");
+  Timer SHTimer;
+  startTimer(&SHTimer);
   generateSpatialHeirarchy(world, &SH);
-  printf("Spatial Heirarchy built. #Boxes: %d\n", SH.objectCount);
-
+  endTimer(&SHTimer);
+  printf("Done. Took %fms\n", getTimeElapsedMS(&SHTimer));
+  printf("\t%d Objects\n\t%d Triangles\n\t%d Spheres\n\t%d Planes\n\t%d Directional Lights\n", SH.objectCount, world->triangleCount, world->sphereCount, world->planeCount, world->dLightCount);
+  #if DEBUG_LINES
+  printf("\t%d Debug Lines\n", world->lineCount);
+  #endif
   
   //split into tiles
   u32 tileWidth = 64;//image.width / coreCount;
@@ -663,7 +705,7 @@ int main(int argc, char** argv)
   queue.raysPerPixel = RAYS_PER_PIXEL;
   queue.camera = camera;
   
-  printf("Config: Use CPU, %d cores, %d rays per pixel, %dx%d image,\n\t%dx%d tiles at %dk/tile, Lane Width: %d\n\tLens radius: %.4f\n",
+  printf("Config: Use CPU, %d cores, %d rays per pixel\n\t%dx%d image, %dx%d tiles at %dk/tile\n\tLane Width: %d\n\tLens radius: %.4f\n",
 	 coreCount, queue.raysPerPixel,
 	 IMAGE_WIDTH, IMAGE_HEIGHT,
 	 tileWidth, tileHeight, tileWidth*tileHeight*4/1024,

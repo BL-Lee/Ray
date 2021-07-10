@@ -313,6 +313,16 @@ lane_f32 min(lane_f32 first, lane_f32 second)
   return result;
 }
 
+lane_f32 abs(lane_f32 A)
+{
+  lane_f32 mask;
+  mask = 0x7FFFFFFF;
+  //Set the sign bit to 0
+  lane_f32 result;
+  result.V = _mm256_and_ps(mask.V, A.V);
+  return result;
+}
+
 lane_u32 randomLaneU32(u32* seed)
 {
   u32 s1 = xorshift32(seed);
