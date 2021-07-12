@@ -170,7 +170,7 @@ lane_f32 xorLaneF32(lane_f32 A, lane_f32 B)
 lane_f32 operator&(lane_u32 A, lane_f32 B)
 {
   lane_f32 result;
-  result.V = _mm_and_si128(_mm_castsi128_ps(A.V), B.V);
+  result.V = _mm_and_ps(_mm_castsi128_ps(A.V), B.V);
   return result;
 }
 
@@ -260,13 +260,13 @@ f32 HorizontalAdd(lane_f32 lane)
   return result;
 }
 
-lane_f32 max(lane_f32 first, lane_f32 second)
+lane_f32 maxLaneF32(lane_f32 first, lane_f32 second)
 {
   lane_f32 result;
   result.V = _mm_max_ps(first.V, second.V);
   return result;
 }
-lane_f32 min(lane_f32 first, lane_f32 second)
+lane_f32 minLaneF32(lane_f32 first, lane_f32 second)
 {
   lane_f32 result;
   result.V = _mm_min_ps(first.V, second.V);

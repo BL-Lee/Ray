@@ -1,7 +1,7 @@
 #ifndef __RAY_HEADER
 #define __RAY_HEADER
 
-#include "Math.h"
+#include "BLMath.h"
 #include "world.h"
 #include "camera.h"
 

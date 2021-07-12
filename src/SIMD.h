@@ -3,7 +3,7 @@
 
 
 #include <stdint.h>
-#include "Math.h"
+#include "BLMath.h"
 
 
 #ifndef LANE_WIDTH

@@ -18,7 +18,7 @@ u32 clInitPlatform(cl_platform_id* id)
 u32 clInitDevice(cl_device_id* id, cl_platform_id platID)
 {
   //try to get a supported gpu device
-    uint deviceCount;
+    u32 deviceCount;
     if (clGetDeviceIDs(platID, CL_DEVICE_TYPE_GPU, 1, id, &deviceCount) != CL_SUCCESS)
     {
       printf("\nUnable to get device id\n");

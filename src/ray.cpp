@@ -131,8 +131,8 @@ lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *D
 	  //condiitonal swap using xor
 	  xorSwap(swapMask, &farDist,  &nearDist);
 
-	  boxHitDistNear = max(nearDist, boxHitDistNear);
-	  boxHitDistFar = min(farDist, boxHitDistFar);
+	  boxHitDistNear = maxLaneF32(nearDist, boxHitDistNear);
+	  boxHitDistFar = maxLaneF32(farDist, boxHitDistFar);
 		    
 	  lane_u32 distMask = (boxHitDistNear < boxHitDistFar);
 
@@ -382,8 +382,8 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 		  //condiitonal swap using xor
 		  xorSwap(swapMask, &farDist,  &nearDist);
 
-		  boxHitDistNear = max(nearDist, boxHitDistNear);
-		  boxHitDistFar = min(farDist, boxHitDistFar);
+		  boxHitDistNear = maxLaneF32(nearDist, boxHitDistNear);
+		  boxHitDistFar = maxLaneF32(farDist, boxHitDistFar);
 
 		  lane_u32 distMask = (boxHitDistNear < boxHitDistFar) & hitMask;
 		  hitMask = distMask;
@@ -585,7 +585,7 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 	      //add any colour this object emits, times the attenuation
 	      //clamp to 0-inf
 	      //totally arbirary 0.4 right now, i just didnt like it at 0
-	      lane_f32 cosAttenuation = max(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0.3));
+	      lane_f32 cosAttenuation = maxLaneF32(dot(rayDirection*(-1.0f), bounceNormal), laneF32FromF32(0.3));
 	      //setup for next bounce
 	      rayOrigin = rayOrigin + rayDirection * minDist;
 

@@ -40,7 +40,7 @@ vec3 sample3dBlueNoise(Image* blueNoise, u32 x, u32 y, u32 offset)
   return result;
 }
 
-
+/*
 vec2* generateBlueNoiseGrid(u32 width, f32 r)
 {
   u32 entropy = 0xF2819abf;
@@ -113,3 +113,4 @@ vec2* generateBlueNoiseGrid(u32 width, f32 r)
   
   return points;
 }
+*/

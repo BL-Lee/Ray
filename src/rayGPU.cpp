@@ -10,7 +10,7 @@
 #include "timer.h"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 16
+ #define RAYS_PER_PIXEL 128
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -82,7 +82,7 @@ int main(int argc, char** argv)
   printf("Done. Took %fms\n", getTimeElapsedMS(&SHTimer));
   printf("\t%d Objects\n\t%d Triangles\n\t%d Spheres\n\t%d Planes\n\t%d Directional Lights\n\t%d Debug Lines\n", SH.objectCount, world->triangleCount, world->sphereCount, world->planeCount, world->dLightCount, world->lineCount);
         
-  u32 tileWidth = 256;//image.width / coreCount;
+  u32 tileWidth = 1024;//image.width / coreCount;
   u32 tileHeight = tileWidth;
   
   printf("Config: Use GPU, %d rays per pixel\n\t%dx%d image, %dx%d tiles at %dk/tile\n\tLens radius: %.4f\n",
@@ -124,7 +124,15 @@ int main(int argc, char** argv)
   clImageDesc.image_width = IMAGE_WIDTH;
   clImageDesc.image_height = IMAGE_HEIGHT;
     
-  cl_mem clImage = clCreateImage(context, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, &clImageFormat, &clImageDesc, image.pixels, &error);
+  //cl_mem clImage = clCreateImage(context, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, &clImageFormat, &clImageDesc, image.pixels, &error);
+  cl_mem clImage = clCreateImage2D (context,
+						  CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
+						  &clImageFormat,
+ 	clImageDesc.image_width,
+ 	clImageDesc.image_height,
+ 	0,
+ 	image.pixels,
+									&error);
   if (error)
     {
       printf("Error creating image\n\tError code:%d\n", error);

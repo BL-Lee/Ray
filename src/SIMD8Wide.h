@@ -299,14 +299,14 @@ f32 HorizontalAdd(lane_f32 lane)
 }
 
 
-lane_f32 max(lane_f32 first, lane_f32 second)
+lane_f32 maxLaneF32(lane_f32 first, lane_f32 second)
 {
   lane_f32 result;
   result.V = _mm256_max_ps(first.V, second.V);
   return result;
 }
 
-lane_f32 min(lane_f32 first, lane_f32 second)
+lane_f32 minLaneF32(lane_f32 first, lane_f32 second)
 {
   lane_f32 result;
   result.V = _mm256_min_ps(first.V, second.V);

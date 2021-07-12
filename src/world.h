@@ -9,7 +9,7 @@
 #define WORLD_LINE_COUNT 128
 #define SPATIAL_BOX_COUNT 32
 
-#include "Math.h"
+#include "BLMath.h"
 #include "float.h"
 #ifdef __USE_OPENCL
 //OpenCL structs
@@ -39,7 +39,7 @@ typedef struct _SpatialBox
 }SpatialBox;
 
 
-typedef struct
+typedef struct _SpatialHeirarchy
 {
   SpatialBox boxes[SPATIAL_BOX_COUNT];
   Object objects[32];
