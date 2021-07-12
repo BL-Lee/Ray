@@ -66,9 +66,10 @@ cl_program clInitProgram(cl_context context, cl_device_id devID, const char* sou
       printf("\nError creating program\n\tError Code: %d\n", error);
       return 0;
     }
-  
+  char options[] = "-cl-unsafe-math-optimizations -cl-mad-enable -cl-fast-relaxed-math";
+  //char options[] = "-cl-opt-disable";  
   //compile the program
-  if ((error = clBuildProgram(program, 1, &devID, "-g", NULL, NULL)) != CL_SUCCESS)
+  if ((error = clBuildProgram(program, 1, &devID, options, NULL, NULL)) != CL_SUCCESS)
     {
       
       printf("\nError bugilding program\n\tError Code: %d\n", error);

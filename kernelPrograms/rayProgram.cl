@@ -433,7 +433,8 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                 }
 
 	      //at least one ray hit this box
-	      if (hitMask) {
+	      if (hitMask)
+              {
 
 		clObject object = SH.objects[boxIndex];
 
@@ -537,39 +538,40 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   }
               }
           }
-	  if (bounceCount == 0) {
-	    for (uint i = 0; i < world->lineCount; i++)
-	      {
-		clLine line = world->lines[i];
-		float3 lineDir;
-		lineDir = line.direction;
-		float3 lineOrigin;
-		lineOrigin = line.origin;
+          if (bounceCount == 0)
+            {
+              for (uint i = 0; i < world->lineCount; i++)
+                {
+                  clLine line = world->lines[i];
+                  float3 lineDir;
+                  lineDir = line.direction;
+                  float3 lineOrigin;
+                  lineOrigin = line.origin;
 
-		float3 perpDir = cross(rayDirection, lineDir);
+                  float3 perpDir = cross(rayDirection, lineDir);
 
-		float3 n2 = cross(lineDir, perpDir);
-		float3 c1 = rayOrigin + rayDirection * (dot(lineOrigin - rayOrigin, n2) / dot(rayDirection, n2));
+                  float3 n2 = cross(lineDir, perpDir);
+                  float3 c1 = rayOrigin + rayDirection * (dot(lineOrigin - rayOrigin, n2) / dot(rayDirection, n2));
 
-		float3 n1 = cross(rayDirection, perpDir);
-		float3 c2 = lineOrigin + lineDir * (dot(rayOrigin - lineOrigin, n1) / dot(lineDir, n1));
+                  float3 n1 = cross(rayDirection, perpDir);
+                  float3 c2 = lineOrigin + lineDir * (dot(rayOrigin - lineOrigin, n1) / dot(lineDir, n1));
 
-		float dist = length(c2 - c1);
-		float3 rayOriginToPoint = c1 - rayOrigin;
-		float3 lineOriginToPoint = c2 - lineOrigin;
+                  float dist = length(c2 - c1);
+                  float3 rayOriginToPoint = c1 - rayOrigin;
+                  float3 lineOriginToPoint = c2 - lineOrigin;
 
-		uint distMask = dist < 0.01;
+                  uint distMask = dist < 0.01;
 		
-		uint minDistMask = (length(rayOriginToPoint) < minDist) & (dot(rayDirection, rayOriginToPoint) > 0.0);
-		uint lengthMask = (length(lineOriginToPoint) < line.length) & (dot(lineDir, lineOriginToPoint) > 0.0f);
+                  uint minDistMask = (length(rayOriginToPoint) < minDist) & (dot(rayDirection, rayOriginToPoint) > 0.0);
+                  uint lengthMask = (length(lineOriginToPoint) < line.length) & (dot(lineDir, lineOriginToPoint) > 0.0f);
 		
-		uint hitMask = distMask & minDistMask & lengthMask;
+                  uint hitMask = distMask & minDistMask & lengthMask;
 
-		if (hitMask) {
-		  matIndex = 3;
-		}
-	      }
-	  }
+                  if (hitMask) {
+                    matIndex = 3;
+                  }
+                }
+            }
         
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something
@@ -610,7 +612,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                     bouncesComputed++;
 		  }
 		}
-	  
+
 	      float3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      //TODO: different noise for random
 	      float3 randomDir = {randomBilateral32(&entropy), randomBilateral32(&entropy), randomBilateral32(&entropy)};
