@@ -132,7 +132,7 @@ lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *D
 	  xorSwap(swapMask, &farDist,  &nearDist);
 
 	  boxHitDistNear = maxLaneF32(nearDist, boxHitDistNear);
-	  boxHitDistFar = maxLaneF32(farDist, boxHitDistFar);
+	  boxHitDistFar = minLaneF32(farDist, boxHitDistFar);
 		    
 	  lane_u32 distMask = (boxHitDistNear < boxHitDistFar);
 
@@ -383,7 +383,7 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 		  xorSwap(swapMask, &farDist,  &nearDist);
 
 		  boxHitDistNear = maxLaneF32(nearDist, boxHitDistNear);
-		  boxHitDistFar = maxLaneF32(farDist, boxHitDistFar);
+		  boxHitDistFar = minLaneF32(farDist, boxHitDistFar);
 
 		  lane_u32 distMask = (boxHitDistNear < boxHitDistFar) & hitMask;
 		  hitMask = distMask;

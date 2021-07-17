@@ -1,4 +1,4 @@
-#include "Math.h"
+#include "BLMath.h"
 #include <stdlib.h>
 #include "bitmap.h"
 
