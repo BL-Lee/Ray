@@ -11,6 +11,7 @@
 #include "Threads.h"
 #include "STL.cpp"
 #include "BlueNoise.cpp"
+#include "BVH.cpp"
 
 #ifndef RAYS_PER_PIXEL 
  #define RAYS_PER_PIXEL 8
@@ -679,16 +680,22 @@ int main(int argc, char** argv)
 
       loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
+  //loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl");
+
+  BVH* bvh = constructBVH(world);
   printf("Building Spatial Heirarchy...");
   Timer SHTimer;
   startTimer(&SHTimer);
   generateSpatialHeirarchy(world, &SH);
-  endTimer(&SHTimer);
+  endTimer(&SHTimer);  
   printf("Done. Took %fms\n", getTimeElapsedMS(&SHTimer));
   printf("\t%d Objects\n\t%d Triangles\n\t%d Spheres\n\t%d Planes\n\t%d Directional Lights\n", SH.objectCount, world->triangleCount, world->sphereCount, world->planeCount, world->dLightCount);
   #if DEBUG_LINES
   printf("\t%d Debug Lines\n", world->lineCount);
   #endif
+
+
+
   
   //split into tiles
   u32 tileWidth = 64;//image.width / coreCount;
@@ -793,5 +800,6 @@ int main(int argc, char** argv)
   free(threadIDs);
   free(blueNoise->pixels);
   free(blueNoise);
+  free(bvh);
   return 0;
 }

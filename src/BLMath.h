@@ -160,6 +160,15 @@ inline vec3 operator*(vec3 a, float b)
   result.z = a.z * b;
   return result;
 }
+inline vec3 operator*(float b, vec3 a)
+{
+  vec3 result;
+  result.x = a.x * b;
+  result.y = a.y * b;
+  result.z = a.z * b;
+  return result;
+}
+
 
 inline vec3 operator/(vec3 a, float b)
 {
@@ -167,6 +176,14 @@ inline vec3 operator/(vec3 a, float b)
   result.x = a.x / b;
   result.y = a.y / b;
   result.z = a.z / b;
+  return result;
+}
+inline vec3 operator/(vec3 a, vec3 b)
+{
+  vec3 result;
+  result.x = a.x / b.x;
+  result.y = a.y / b.y;
+  result.z = a.z / b.z;
   return result;
 }
 inline vec3 operator/(vec3 a, int b)
@@ -202,7 +219,77 @@ inline vec3 &vec3::operator/=(float b)
   return *this;
 }
 
+typedef struct vec3ui
+{
+  u32 x;
+  u32 y;
+  u32 z;
+  inline vec3ui &operator+=(vec3ui b);
+  inline vec3ui &operator-=(vec3ui b);
+  inline vec3ui &operator*=(u32 b);
+  inline vec3ui &operator/=(u32 b);
 
+}vec3ui;
+
+inline vec3ui operator+(vec3ui a, vec3ui b)
+{
+	vec3ui result;
+	result.x = a.x + b.x;
+	result.y = a.y + b.y;
+	result.z = a.z + b.z;
+	return result;
+}
+
+inline vec3ui operator-(vec3ui a, vec3ui b)
+{
+	vec3ui result;
+	result.x = a.x - b.x;
+	result.y = a.y - b.y;
+	result.z = a.z - b.z;
+	return result;
+}
+
+inline vec3ui operator*(vec3ui a, u32 b)
+{
+  vec3ui result;
+  result.x = a.x * b;
+  result.y = a.y * b;
+  result.z = a.z * b;
+  return result;
+}
+
+inline vec3ui operator/(vec3ui a, u32 b)
+{
+  vec3ui result;
+  result.x = a.x / b;
+  result.y = a.y / b;
+  result.z = a.z / b;
+  return result;
+}
+
+inline vec3ui &vec3ui::operator+=(vec3ui b)
+{
+  *this = *this + b;
+  return *this;
+}
+
+inline vec3ui &vec3ui::operator-=(vec3ui b)
+{
+  *this = *this - b;
+  return *this;
+}
+
+inline vec3ui &vec3ui::operator*=(u32 b)
+{
+  *this = *this * b;
+  return *this;
+}
+
+inline vec3ui &vec3ui::operator/=(u32 b)
+{
+  *this = *this / b;
+  return *this;
+}
 /*
 
   Vector 4

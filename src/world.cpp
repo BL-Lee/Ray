@@ -47,8 +47,8 @@ World* initWorld(SpatialHeirarchy* SH)
   plane->normal = normalize(vec3( 0.0f, 0.001f, 1.0f ));
   plane->dist = 0.0f;
   plane->matIndex = 1;
-  addPlaneToObject(&object, planeIndex);
-  addObjectToSpatialHeirarchy(SH, &object);
+  //addPlaneToObject(&object, planeIndex);
+  //addObjectToSpatialHeirarchy(SH, &object);
 
   /*
   plane = getPlaneFromWorld(world, &planeIndex);
@@ -133,8 +133,8 @@ World* initWorld(SpatialHeirarchy* SH)
       if (sphere->matIndex == 0) { sphere->matIndex = 1; }
       if (sphere->matIndex == world->materialCount) { sphere->matIndex = world->materialCount - 1; }
 
-      addSphereToObject(&object, sphereIndex);
-      addObjectToSpatialHeirarchy(SH, &object);
+      //addSphereToObject(&object, sphereIndex);
+      //addObjectToSpatialHeirarchy(SH, &object);
     }  
 
   //world->sphereCount = 0;
@@ -249,6 +249,93 @@ Plane* getPlaneFromWorld(World* world, u32* index)
   return plane;
 }
 
+void addLineToWorld(World* world, vec3 origin, vec3 direction, f32 length)
+{
+  Line* line = world->lines + world->lineCount;
+  line->origin = origin;
+  line->direction = direction;
+  line->length = length;
+  world->lineCount++;
+}
+void addDebugRectToWorld(World* world, vec3 center, vec3 dimensions)
+{
+  //bottom corner
+  addLineToWorld(world,
+		 center - dimensions,
+		 {1.0f, 0.0f, 0.0f},
+		 dimensions.x * 2.0f);
+
+  Line* line = world->lines + world->lineCount;
+  line->origin = center - dimensions;
+  line->direction = {0.0f,1.0f,0.0f};
+  line->length = dimensions.y * 2.0f;
+  world->lineCount++;
+
+  line = world->lines + world->lineCount;
+  line->origin = center - dimensions;
+  line->direction = {0.0f,0.0f,1.0f};
+  line->length = dimensions.z * 2.0f;
+  world->lineCount++;
+
+  //top corner
+  line = world->lines + world->lineCount;
+  line->origin = center + dimensions;
+  line->direction = {0.0f,0.0f,-1.0f};
+  line->length = dimensions.z * 2.0f;
+  world->lineCount++;
+
+  line = world->lines + world->lineCount;
+  line->origin = center + dimensions;
+  line->direction = {0.0f,-1.0f,0.0f};
+  line->length = dimensions.y * 2.0f;
+  world->lineCount++;
+
+  line = world->lines + world->lineCount;
+  line->origin = center + dimensions;
+  line->direction = {-1.0f,0.0f,0.0f};
+  line->length = dimensions.x * 2.0f;
+  world->lineCount++;
+
+  //top right
+  line = world->lines + world->lineCount;
+  line->origin = center + hadamard({1.0f,-1.0f,1.0f},dimensions);
+  line->direction = {-1.0f,0.0f,0.0f};
+  line->length = dimensions.x * 2.0f;
+  world->lineCount++;
+
+  line = world->lines + world->lineCount;
+  line->origin = center + hadamard({1.0f,-1.0f,1.0f},dimensions);
+  line->direction = {.0f,0.0f,-1.0f};
+  line->length = dimensions.z * 2.0f;
+  world->lineCount++;
+
+    //bottom right
+  line = world->lines + world->lineCount;
+  line->origin = center + hadamard({-1.0f,1.0f,1.0f},dimensions);
+  line->direction = {0.0f,0.0f,-1.0f};
+  line->length = dimensions.z * 2.0f;
+  world->lineCount++;
+
+    line = world->lines + world->lineCount;
+  line->origin = center + hadamard({-1.0f,1.0f,1.0f},dimensions);
+  line->direction = {0.0f,-1.0f,0.0f};
+  line->length = dimensions.y * 2.0f;
+  world->lineCount++;
+  
+  //another
+  line = world->lines + world->lineCount;
+  line->origin = center + hadamard({1.0f,1.0f,-1.0f},dimensions);
+  line->direction = {0.0f,-1.0f,0.0f};
+  line->length = dimensions.y * 2.0f;
+  world->lineCount++;
+
+  line = world->lines + world->lineCount;
+  line->origin = center + hadamard({1.0f,1.0f,-1.0f},dimensions);
+  line->direction = {-1.0f,0.0f,0.0f};
+  line->length = dimensions.x * 2.0f;
+  world->lineCount++;
+
+}
 
 /*
 

@@ -44,11 +44,11 @@ lane_f32 xorLaneF32(lane_f32 A, lane_f32 B)
 }
 lane_f32 minLaneF32(lane_f32 A, lane_f32 B)
 {
-  return A < B : A ? B;
+  return A < B ? A : B;
 }
 lane_f32 maxLaneF32(lane_f32 A, lane_f32 B)
 {
-  return A > B : A ? B;
+  return A > B ? A : B;
 }
 
 void ConditionalAssign(lane_u32* target, lane_u32 condition, lane_u32 value)

@@ -6,7 +6,7 @@
 #define WORLD_MATERIAL_COUNT 8
 #define WORLD_TRIANGLE_COUNT 1024
 #define WORLD_DIRECTIONAL_LIGHT_COUNT 4
-#define WORLD_LINE_COUNT 128
+#define WORLD_LINE_COUNT 1024
 #define SPATIAL_BOX_COUNT 32
 
 #include "BLMath.h"
@@ -131,6 +131,8 @@ void addObjectToSpatialHeirarchy(SpatialHeirarchy* SH, Object* object);
 void addSphereToObject(Object* object, u32 index);
 void addPlaneToObject(Object* object, u32 index);
 void addTriangleToObject(Object* object, u32 index);
+
+void addDebugRectToWorld(World* world, vec3 center, vec3 dimensions);
 
 void generateSpatialHeirarchy(World* world, SpatialHeirarchy* SH);
 void computeExtentBounds(Object* object, SpatialBox* box, World* world, SpatialHeirarchy* SH);

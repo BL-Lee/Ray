@@ -8,6 +8,7 @@
 #include "OpenCL.cpp"
 #include "STL.cpp"
 #include "timer.h"
+#include "BVH.cpp"
 
 #ifndef RAYS_PER_PIXEL
  #define RAYS_PER_PIXEL 128
@@ -71,7 +72,7 @@ int main(int argc, char** argv)
 
       loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
-
+  BVH* bvh = constructBVH(world);
   printf("Building Spatial Heirarchy...");
   
   Timer SHTimer;
@@ -82,7 +83,7 @@ int main(int argc, char** argv)
   printf("Done. Took %fms\n", getTimeElapsedMS(&SHTimer));
   printf("\t%d Objects\n\t%d Triangles\n\t%d Spheres\n\t%d Planes\n\t%d Directional Lights\n\t%d Debug Lines\n", SH.objectCount, world->triangleCount, world->sphereCount, world->planeCount, world->dLightCount, world->lineCount);
         
-  u32 tileWidth = 1024;//image.width / coreCount;
+  u32 tileWidth = 128;//image.width / coreCount;
   u32 tileHeight = tileWidth;
   
   printf("Config: Use GPU, %d rays per pixel\n\t%dx%d image, %dx%d tiles at %dk/tile\n\tLens radius: %.4f\n",

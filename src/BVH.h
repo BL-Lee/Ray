@@ -2,27 +2,29 @@
 #define __BVH_HEADER
 
 #include "world.h"
-#include "Math.h"
+#include "BLMath.h"
 
-typedef struct _BVHNode
+//must be divisble by 3 for 3 dimensions
+#define BVH_DIGIT_COUNT 6
+
+typedef struct _BVHItem
 {
-  u32 triangleIndices[128];
-}BVHNode;
-
+  u32 triangleIndex;
+  u32 mortonCode;
+}BVHItem;
 //add all indices
 //sort by codes
 //Build heirarchy from codes
 
-#define BVH_DIGIT_COUNT 9
 typedef struct _BVH
 {
   u32 digits = BVH_DIGIT_COUNT;
   vec3 center;
   vec3 dimensions; //radius in each axis Each split divides in 2
-  BVHNode nodes[pow(2,digits)];
+  BVHItem items[1024];
+  u32 indices[(1 << (BVH_DIGIT_COUNT + 1)) - 1]; //each code, and where it points to in items
+  u32 itemCount;
 }BVH;
-
-
 
 //mark off world into [0-1] cube
 //assign morton code to primitives
@@ -30,6 +32,7 @@ typedef struct _BVH
 //do it again for other bits
 
 BVH* constructBVH(World* world);
-BVHNode* getLeafFromCode(BVH* bvh, u32 code);
-
+vec3 mortonCodeToPosition(BVH* bvh, u32 code);
+//void radixSortBVH(BVHItem* bucket, u32 start, u32 end, u32 digit);
+void radixSortBVH(BVHItem* bucket, BVHItem* bucketZero, BVHItem* bucketOne,  u32 start, u32 end, u32 digit);
 #endif
