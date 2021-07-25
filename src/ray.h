@@ -72,8 +72,8 @@ inline lane_u32 rayAABBIntersection(lane_v3 rayOrigin, lane_v3 rayDirection, Spa
 }
 */
 
-vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* filmY, lane_f32* filmX,  u32 sampleCount, u32 screenX, u32 screenY);//, u16* maskPtr);
-void renderTile(World* world, Image image,
+static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* filmY, lane_f32* filmX,  u32 sampleCount, u32 screenX, u32 screenY);//, u16* maskPtr);
+static void renderTile(World* world, Image image,
 		u32 minX, u32 onePastMaxX,
 		u32 minY, u32 onePastMaxY,
 		u32 raysPerPixel);

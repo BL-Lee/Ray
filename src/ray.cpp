@@ -159,9 +159,7 @@ static lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lan
 					    &minDist, &planeDist);
 	    if (!MaskAllZeros(hitMask))
 	      {
-		lane_u32 planeMatIndex;
-		planeMatIndex = plane.matIndex;
-		return planeMatIndex;
+		return laneU32FromU32(plane.matIndex);
 	      }
 	  }
 	//iterate over all spheres
@@ -174,11 +172,7 @@ static lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lan
 					     &minDist, &sphereDist);
 	    if (!MaskAllZeros(hitMask))
 	      {
-		lane_v3 spherePos;
-		spherePos = sphere.position;
-		lane_u32 sphereMatIndex;			
-		sphereMatIndex = sphere.matIndex;
-		return sphereMatIndex;
+		return laneU32FromU32(sphere.matIndex);
 	      }
 	  }
 	  for (u32 i = 0; i < object.triangleCount; i++)
@@ -191,9 +185,7 @@ static lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lan
 						 &minDist, &triangleDist);
 	      if (!MaskAllZeros(hitMask))
 		{		
-		  lane_u32 triangleMatIndex;
-		  triangleMatIndex = triangle.matIndex;
-		  return triangleMatIndex;
+		  return laneU32FromU32(triangle.matIndex);
 		}		      
 	    }
       }

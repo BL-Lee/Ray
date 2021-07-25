@@ -81,20 +81,20 @@ typedef struct __attribute__((packed))
 #define BVH_DIGIT_COUNT 6
 typedef struct __attribute__((packed))_clBVHItem
 {
-  u32 triangleIndex;
-  u32 mortonCode;
+  uint triangleIndex;
+  uint mortonCode;
 }clBVHItem;
 //add all indices
 //sort by codes
 //Build heirarchy from codes
 typedef struct __attribute__((packed))_clBVH
 {
-  u32 digits = BVH_DIGIT_COUNT;
-  vec3 center;
-  vec3 dimensions; //radius in each axis Each split divides in 2
-  BVHItem items[1024];
-  u32 indices[(1 << (BVH_DIGIT_COUNT + 1)) - 1]; //each code, and where it points to in items
-  u32 itemCount;
+  uint digits;
+  float3 center;
+  float3 dimensions; //radius in each axis Each split divides in 2
+  clBVHItem items[1024];
+  uint indices[(1 << (BVH_DIGIT_COUNT + 1)) - 1]; //each code, and where it points to in items
+  uint itemCount;
 }clBVH;
 
 
