@@ -47,8 +47,8 @@ World* initWorld(SpatialHeirarchy* SH)
   plane->normal = normalize(vec3( 0.0f, 0.001f, 1.0f ));
   plane->dist = 0.0f;
   plane->matIndex = 1;
-  //addPlaneToObject(&object, planeIndex);
-  //addObjectToSpatialHeirarchy(SH, &object);
+  addPlaneToObject(&object, planeIndex);
+  addObjectToSpatialHeirarchy(SH, &object);
 
   /*
   plane = getPlaneFromWorld(world, &planeIndex);
@@ -265,76 +265,64 @@ void addDebugRectToWorld(World* world, vec3 center, vec3 dimensions)
 		 {1.0f, 0.0f, 0.0f},
 		 dimensions.x * 2.0f);
 
-  Line* line = world->lines + world->lineCount;
-  line->origin = center - dimensions;
-  line->direction = {0.0f,1.0f,0.0f};
-  line->length = dimensions.y * 2.0f;
-  world->lineCount++;
+  addLineToWorld(world,
+		 center - dimensions,
+		 {0.0f, 1.0f, 0.0f},
+		 dimensions.y * 2.0f);
 
-  line = world->lines + world->lineCount;
-  line->origin = center - dimensions;
-  line->direction = {0.0f,0.0f,1.0f};
-  line->length = dimensions.z * 2.0f;
-  world->lineCount++;
+  addLineToWorld(world,
+		 center - dimensions,
+		 {0.0f, 0.0f, 1.0f},
+		 dimensions.z * 2.0f);
 
   //top corner
-  line = world->lines + world->lineCount;
-  line->origin = center + dimensions;
-  line->direction = {0.0f,0.0f,-1.0f};
-  line->length = dimensions.z * 2.0f;
-  world->lineCount++;
+  addLineToWorld(world,
+		 center + dimensions,
+		 {0.0f, 0.0f, -1.0f},
+		 dimensions.z * 2.0f);
 
-  line = world->lines + world->lineCount;
-  line->origin = center + dimensions;
-  line->direction = {0.0f,-1.0f,0.0f};
-  line->length = dimensions.y * 2.0f;
-  world->lineCount++;
+  addLineToWorld(world,
+		 center + dimensions,
+		 {0.0f, -1.0f, .0f},
+		 dimensions.y * 2.0f);
+      
+  addLineToWorld(world,
+		 center + dimensions,
+		 {-1.0f, 0.0f, 0.0f},
+		 dimensions.x * 2.0f);
 
-  line = world->lines + world->lineCount;
-  line->origin = center + dimensions;
-  line->direction = {-1.0f,0.0f,0.0f};
-  line->length = dimensions.x * 2.0f;
-  world->lineCount++;
+  //bottom right
+  addLineToWorld(world,
+		 center + hadamard({-1.0f,1.0f,1.0f},dimensions),
+		 {0.0f, -1.0f, 0.0f},
+		 dimensions.y * 2.0f);
 
-  //top right
-  line = world->lines + world->lineCount;
-  line->origin = center + hadamard({1.0f,-1.0f,1.0f},dimensions);
-  line->direction = {-1.0f,0.0f,0.0f};
-  line->length = dimensions.x * 2.0f;
-  world->lineCount++;
-
-  line = world->lines + world->lineCount;
-  line->origin = center + hadamard({1.0f,-1.0f,1.0f},dimensions);
-  line->direction = {.0f,0.0f,-1.0f};
-  line->length = dimensions.z * 2.0f;
-  world->lineCount++;
-
-    //bottom right
-  line = world->lines + world->lineCount;
-  line->origin = center + hadamard({-1.0f,1.0f,1.0f},dimensions);
-  line->direction = {0.0f,0.0f,-1.0f};
-  line->length = dimensions.z * 2.0f;
-  world->lineCount++;
-
-    line = world->lines + world->lineCount;
-  line->origin = center + hadamard({-1.0f,1.0f,1.0f},dimensions);
-  line->direction = {0.0f,-1.0f,0.0f};
-  line->length = dimensions.y * 2.0f;
-  world->lineCount++;
+  addLineToWorld(world,
+		 center + hadamard({-1.0f,1.0f,1.0f},dimensions),
+		 {0.0f, 0.0f, -1.0f},
+		 dimensions.z * 2.0f);
   
+  //top right
+  addLineToWorld(world,
+		 center + hadamard({1.0f,-1.0f,1.0f},dimensions),
+		 {-1.0f, 0.0f, 0.0f},
+		 dimensions.x * 2.0f);
+
+  addLineToWorld(world,
+		 center + hadamard({1.0f,-1.0f,1.0f},dimensions),
+		 {0.0f, 0.0f, -1.0f},
+		 dimensions.z * 2.0f);
+
   //another
-  line = world->lines + world->lineCount;
-  line->origin = center + hadamard({1.0f,1.0f,-1.0f},dimensions);
-  line->direction = {0.0f,-1.0f,0.0f};
-  line->length = dimensions.y * 2.0f;
-  world->lineCount++;
+  addLineToWorld(world,
+		 center + hadamard({1.0f,1.0f,-1.0f},dimensions),
+		 {-1.0f, 0.0f, 0.0f},
+		 dimensions.x * 2.0f);
 
-  line = world->lines + world->lineCount;
-  line->origin = center + hadamard({1.0f,1.0f,-1.0f},dimensions);
-  line->direction = {-1.0f,0.0f,0.0f};
-  line->length = dimensions.x * 2.0f;
-  world->lineCount++;
-
+  addLineToWorld(world,
+		 center + hadamard({1.0f,1.0f,-1.0f},dimensions),
+		 {0.0f, -1.0f, 0.0f},
+		 dimensions.y * 2.0f);
 }
 
 /*

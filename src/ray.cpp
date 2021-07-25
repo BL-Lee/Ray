@@ -12,6 +12,7 @@
 #include "STL.cpp"
 #include "BlueNoise.cpp"
 #include "BVH.cpp"
+#include "Intersections.cpp"
 
 #ifndef RAYS_PER_PIXEL 
  #define RAYS_PER_PIXEL 8
@@ -27,7 +28,7 @@
 //u16* shapeMask = (u16*)malloc(sizeof(u16)*IMAGE_HEIGHT*IMAGE_WIDTH);
 Image* blueNoise;
 
-void renderTile(World* world, Image image,
+static void renderTile(World* world, Image image,
 		SpatialHeirarchy* SH, 
 		u32 minX, u32 onePastMaxX,
 		u32 minY, u32 onePastMaxY,
@@ -55,7 +56,7 @@ void renderTile(World* world, Image image,
 }
 
 //for multithreading, maybe make a different function later
-void* threadProc(void* args)
+static void* threadProc(void* args)
 {
   WorkQueue* queue = (WorkQueue*)args;
   u32 workIndex = LockedAdd(&queue->workIndex, 1);
@@ -75,7 +76,7 @@ void* threadProc(void* args)
 }
 
 
-lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *Direction)
+static lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *Direction)
 {
 
   lane_v3 rayOrigin = *Origin;
@@ -152,128 +153,48 @@ lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *D
       	for (u32 i = 0; i < object.planeCount; i++)
 	  {
 	    Plane plane = world->planes[object.planes[i]];
-
-	    lane_v3 planeNormal;
-	    planeNormal = plane.normal;
-	  
-	    lane_f32 denom = dot(planeNormal, rayDirection);
-	    lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
-
-	    //currently slightly faster without this condition
-	    //if (!MaskAllZeros(toleranceMask))
-	    {
-	      lane_f32 planeDist;
-	      planeDist = plane.dist;
-
-	      lane_f32 dist = (-planeDist - dot(planeNormal, rayOrigin)) / denom;
-	      lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
-	      lane_u32 hitMask = toleranceMask & distMask;
-	      if (!MaskAllZeros(hitMask))
-		{
-		  lane_u32 planeMatIndex;
-		  planeMatIndex = plane.matIndex;
-		  return planeMatIndex;
-		  ConditionalAssign(&minDist,      hitMask, dist);
-		  ConditionalAssign(&matIndex,     hitMask, planeMatIndex);
-		}
+	    lane_f32 planeDist;
+	    lane_u32 hitMask = rayPlaneTest(plane,
+					    &rayDirection, &rayOrigin,
+					    &minDist, &planeDist);
+	    if (!MaskAllZeros(hitMask))
+	      {
+		lane_u32 planeMatIndex;
+		planeMatIndex = plane.matIndex;
+		return planeMatIndex;
 	      }
 	  }
 	//iterate over all spheres
       	for (u32 i = 0; i < object.sphereCount; i++)
 	  {
 	    Sphere sphere = world->spheres[object.spheres[i]];
-	    lane_v3 spherePos;
-	    spherePos = sphere.position;
-	    lane_f32 sphereRadius;
-	    sphereRadius = sphere.radius;
-	  
-	    lane_v3 relativeSpherePos = rayOrigin - spherePos;
-	    lane_f32 a = dot(rayDirection, rayDirection);
-	    lane_f32 b = 2*dot(rayDirection, relativeSpherePos);
-	    lane_f32 c = dot(relativeSpherePos, relativeSpherePos) - sphereRadius * sphereRadius;
-
-	    lane_f32 root = b*b - 4*a*c;
-	    lane_u32 rootMask = root > tolerance;	  
-	    if (!MaskAllZeros(rootMask))
+	    lane_f32 sphereDist;
+	    lane_u32 hitMask = raySphereTest(sphere,
+					     &rayDirection, &rayOrigin,
+					     &minDist, &sphereDist);
+	    if (!MaskAllZeros(hitMask))
 	      {
-		//lane_f32 farDist = (-b + sqrt(root)) / 2*a;	      
-		lane_f32 dist = (-b - sqrt(root)) / 2*a;
-		lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
-
-		lane_u32 hitMask = rootMask & distMask;
-		if (!MaskAllZeros(hitMask))
-		  {
-		    lane_u32 sphereMatIndex;
-		    sphereMatIndex = sphere.matIndex;
-		    return sphereMatIndex;
-		    ConditionalAssign(&minDist,      hitMask, dist);
-		    ConditionalAssign(&matIndex,     hitMask, sphereMatIndex);
-		  }
+		lane_v3 spherePos;
+		spherePos = sphere.position;
+		lane_u32 sphereMatIndex;			
+		sphereMatIndex = sphere.matIndex;
+		return sphereMatIndex;
 	      }
 	  }
-
 	  for (u32 i = 0; i < object.triangleCount; i++)
 	    {
 	      Triangle triangle = world->triangles[object.triangles[i]];
-	      lane_v3 v0;
-	      lane_v3 v1;
-	      lane_v3 v2;
-	      lane_v3 normal;
-	      v0 = triangle.v0;
-	      v1 = triangle.v1;
-	      v2 = triangle.v2;
 
-	      normal = triangle.normal;
-	      
-	      lane_f32 denom = dot(normal, rayDirection);
-	      lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
-
-	      //currently slightly faster without this condition
-	      //if (!MaskAllZeros(toleranceMask))
-	      {
-		lane_f32 triangleOffset; //like the planeDist but for the triangle
-		triangleOffset = -dot(normal, v0);
-		lane_f32 triangleDist;
-		triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
-		
-		lane_u32 planeHitMask;
-		planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
-		if (!MaskAllZeros(planeHitMask))
-		  {
-
-		    lane_u32 triangleHitMask;
-		    triangleHitMask = 0xFFFFFFFF;
-		  
-		    lane_v3 planePoint;
-		    planePoint = (rayDirection * triangleDist) + rayOrigin;
-
-		    lane_v3 edgePerp;
-		  
-		    lane_v3 edge0 = v1 - v0;
-		    edgePerp = cross(edge0, planePoint - v0);
-		    triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
-
-		    lane_v3 edge1 = v2 - v1;
-		    edgePerp = cross(edge1, planePoint - v1);
-		    triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
-
-		    lane_v3 edge2 = v0 - v2;
-		    edgePerp = cross(edge2, planePoint - v2);
-		    triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
-
-
-		    lane_u32 hitMask = triangleHitMask & planeHitMask;
-		  					 
-		    if (!MaskAllZeros(hitMask))
-		      {
-			lane_u32 triangleMatIndex;
-			triangleMatIndex = triangle.matIndex;
-			return triangleMatIndex;
-			ConditionalAssign(&minDist,  hitMask, triangleDist);
-			ConditionalAssign(&matIndex, hitMask, triangleMatIndex);
-		      }		      
-		  }
-	      }
+	      lane_f32 triangleDist;
+	      lane_u32 hitMask = rayTriangleTest(triangle,
+						 &rayDirection, &rayOrigin,
+						 &minDist, &triangleDist);
+	      if (!MaskAllZeros(hitMask))
+		{		
+		  lane_u32 triangleMatIndex;
+		  triangleMatIndex = triangle.matIndex;
+		  return triangleMatIndex;
+		}		      
 	    }
       }
     }
@@ -281,7 +202,7 @@ lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lane_v3 *D
 }
 
 //TODO: When using 8 wide lanes, lane_f32's last 4 floats get clobbered to 0 when passed by value, why?
-vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* filmYP, lane_f32* filmXP,  u32 sampleCount, u32 screenX, u32 screenY)//, u16* maskPtr)
+static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* filmYP, lane_f32* filmXP,  u32 sampleCount, u32 screenX, u32 screenY)//, u16* maskPtr)
 {
   lane_f32 filmY = *filmYP;
   lane_f32 filmX = *filmXP;
@@ -347,7 +268,7 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 	  matIndex = 0;
       
 	  bouncesComputed += laneIncrement & laneMask;
-	  
+
 	  for (u32 boxIndex = 0; boxIndex < SH->objectCount; boxIndex++)
 	    {
 
@@ -402,131 +323,66 @@ vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* film
 		for (u32 i = 0; i < object.planeCount; i++)
 		  {
 		    Plane plane = world->planes[object.planes[i]];
-		    lane_v3 planeNormal;
-		    planeNormal = plane.normal;
-	  
-		    lane_f32 denom = dot(planeNormal, rayDirection);
-		    lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
-
-		    //currently slightly faster without this condition
-		    //if (!MaskAllZeros(toleranceMask))
-		    {
-		      lane_f32 planeDist;
-		      planeDist = plane.dist;
-
-		      lane_f32 dist = (-planeDist - dot(planeNormal, rayOrigin)) / denom;
-		      lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
-		      lane_u32 hitMask = toleranceMask & distMask;
-		      if (!MaskAllZeros(hitMask))
-			{
-			  lane_u32 planeMatIndex;
-			  planeMatIndex = plane.matIndex;
-			  ConditionalAssign(&minDist,      hitMask, dist);
-			  ConditionalAssign(&bounceNormal, hitMask, planeNormal);
-			  ConditionalAssign(&matIndex,     hitMask, planeMatIndex);
-			}
-		    }
+		    lane_f32 planeDist;
+		    lane_u32 hitMask = rayPlaneTest(plane,
+						     &rayDirection, &rayOrigin,
+						     &minDist, &planeDist);
+		    if (!MaskAllZeros(hitMask))
+		      {
+			lane_u32 planeMatIndex;
+			planeMatIndex = plane.matIndex;
+			lane_v3 planeNormal;
+			planeNormal = plane.normal;
+			ConditionalAssign(&minDist,      hitMask, planeDist);
+			ConditionalAssign(&bounceNormal, hitMask, planeNormal);
+			ConditionalAssign(&matIndex,     hitMask, planeMatIndex);
+		      }
 		  }
 		//iterate over all spheres
 		for (u32 i = 0; i < object.sphereCount; i++)
 		  {
-		    //Sphere sphere = world->spheres[box.spheres[i]];
 		    Sphere sphere = world->spheres[object.spheres[i]];
-		    lane_v3 spherePos;
-		    spherePos = sphere.position;
-		    lane_f32 sphereRadius;
-		    sphereRadius = sphere.radius;
-	  
-		    lane_v3 relativeSpherePos = rayOrigin - spherePos;
-		    lane_f32 a = dot(rayDirection, rayDirection);
-		    lane_f32 b = 2*dot(rayDirection, relativeSpherePos);
-		    lane_f32 c = dot(relativeSpherePos, relativeSpherePos) - sphereRadius * sphereRadius;
-
-		    lane_f32 root = b*b - 4*a*c;
-		    lane_u32 rootMask = root > tolerance;	  
-		    if (!MaskAllZeros(rootMask))
+		    lane_f32 sphereDist;
+		    lane_u32 hitMask = raySphereTest(sphere,
+						     &rayDirection, &rayOrigin,
+						     &minDist, &sphereDist);
+		    if (!MaskAllZeros(hitMask))
 		      {
-			//lane_f32 farDist = (-b + sqrt(root)) / 2*a;	      
-			lane_f32 dist = (-b - sqrt(root)) / 2*a;
-			lane_u32 distMask = (dist > minHitDistance) & (dist < minDist);
-
-			lane_u32 hitMask = rootMask & distMask;
-			if (!MaskAllZeros(hitMask))
-			  {
-			    lane_u32 sphereMatIndex;
-			    sphereMatIndex = sphere.matIndex;	  
-			    ConditionalAssign(&minDist,      hitMask, dist);
-			    ConditionalAssign(&bounceNormal, hitMask, normalize((rayOrigin + rayDirection * dist) - spherePos));	      
-			    ConditionalAssign(&matIndex,     hitMask, sphereMatIndex);
-			  }
+			lane_v3 spherePos;
+			spherePos = sphere.position;
+			lane_u32 sphereMatIndex;			
+			sphereMatIndex = sphere.matIndex;	  
+			ConditionalAssign(&minDist,      hitMask, sphereDist);
+			ConditionalAssign(&bounceNormal, hitMask, normalize((rayOrigin + rayDirection * sphereDist) - spherePos));	      
+			ConditionalAssign(&matIndex,     hitMask, sphereMatIndex);
+		
 		      }
 		  }
 
 		for (u32 i = 0; i < object.triangleCount; i++)	    
 		  {
+
 		    Triangle triangle = world->triangles[object.triangles[i]];
-		    lane_v3 v0;
-		    lane_v3 v1;
-		    lane_v3 v2;
-		    lane_v3 normal;
-		    v0 = triangle.v0;
-		    v1 = triangle.v1;
-		    v2 = triangle.v2;
-		    normal = triangle.normal; //normalize(cross(v1-v0, v2-v0));
-	      
-		    lane_f32 denom = dot(normal, rayDirection);
-		    lane_u32 toleranceMask = (denom > tolerance) | (denom < -tolerance);
 
-		    //currently slightly faster without this condition
-		    //if (!MaskAllZeros(toleranceMask))
-		    {
-		      lane_f32 triangleOffset; //like the planeDist but for the triangle
-		      triangleOffset = -dot(normal, v0);
-		      lane_f32 triangleDist;
-		      triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
-		
-		      lane_u32 planeHitMask;
-		      planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
-		      if (!MaskAllZeros(planeHitMask))
-			{
-			  lane_u32 triangleHitMask;
-			  triangleHitMask = 0xFFFFFFFF;
-		  
-			  lane_v3 planePoint;
-			  planePoint = (rayDirection * triangleDist) + rayOrigin;
-
-			  lane_v3 edgePerp;
-		  
-			  lane_v3 edge0 = v1 - v0;
-			  edgePerp = cross(edge0, planePoint - v0);
-			  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
-
-			  lane_v3 edge1 = v2 - v1;
-			  edgePerp = cross(edge1, planePoint - v1);
-			  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
-
-			  lane_v3 edge2 = v0 - v2;
-			  edgePerp = cross(edge2, planePoint - v2);
-			  triangleHitMask &= dot(normal, edgePerp) > laneF32FromF32(0.0f);
-
-
-			  lane_u32 hitMask = triangleHitMask & planeHitMask;
-		  					 
-			  if (!MaskAllZeros(hitMask))
-			    {
-			      lane_u32 triangleMatIndex;
-			      triangleMatIndex = triangle.matIndex;
-			      ConditionalAssign(&minDist,      hitMask, triangleDist);
-			      ConditionalAssign(&bounceNormal, hitMask, normal);
-			      ConditionalAssign(&matIndex,     hitMask, triangleMatIndex);
-			    }		      
-			}
-		    }
+		    lane_f32 triangleDist;
+		    lane_u32 hitMask = rayTriangleTest(triangle,
+						       &rayDirection, &rayOrigin,
+						       &minDist, &triangleDist);
+		    if (!MaskAllZeros(hitMask))
+		      {		
+			lane_v3 normal;
+			normal = triangle.normal;
+			lane_u32 triangleMatIndex;
+			triangleMatIndex = triangle.matIndex;
+			ConditionalAssign(&minDist,      hitMask, triangleDist);
+			ConditionalAssign(&bounceNormal, hitMask, normal);
+			ConditionalAssign(&matIndex,     hitMask, triangleMatIndex);
+		      }		      
 		  }
-		
 	      }
 	    }
-	  #if DEBUG_LINES
+
+#if DEBUG_LINES
 	  if (bounceCount == 0) {
 	    for (u32 i = 0; i < world->lineCount; i++)
 	      {
@@ -669,7 +525,7 @@ int main(int argc, char** argv)
   Camera* camera = initCamera(image);
 
   u32 entropy = 0xf81422;
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < 15; i++)
     {
       vec3 loc =
 	{
@@ -800,6 +656,6 @@ int main(int argc, char** argv)
   free(threadIDs);
   free(blueNoise->pixels);
   free(blueNoise);
-  free(bvh);
+  //free(bvh);
   return 0;
 }

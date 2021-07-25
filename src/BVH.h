@@ -7,6 +7,10 @@
 //must be divisble by 3 for 3 dimensions
 #define BVH_DIGIT_COUNT 6
 
+#ifdef __USE_OPENCL
+#pragma pack(push,1)
+#endif
+
 typedef struct _BVHItem
 {
   u32 triangleIndex;
@@ -25,6 +29,10 @@ typedef struct _BVH
   u32 indices[(1 << (BVH_DIGIT_COUNT + 1)) - 1]; //each code, and where it points to in items
   u32 itemCount;
 }BVH;
+
+#ifdef __USE_OPENCL
+#pragma pack(pop)
+#endif
 
 //mark off world into [0-1] cube
 //assign morton code to primitives
