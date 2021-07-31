@@ -4,10 +4,10 @@
 #define WORLD_SPHERE_COUNT 32
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
-#define WORLD_TRIANGLE_COUNT 1024
+#define WORLD_TRIANGLE_COUNT 4086
 #define WORLD_DIRECTIONAL_LIGHT_COUNT 4
-#define WORLD_LINE_COUNT 1024
-#define SPATIAL_BOX_COUNT 32
+#define WORLD_LINE_COUNT 2048
+#define SPATIAL_BOX_COUNT 64
 
 #include "BLMath.h"
 #include "float.h"
@@ -25,7 +25,7 @@ typedef struct
 {
   u32 planes[1];//indices into world
   u32 spheres[2];
-  u32 triangles[40];
+  u32 triangles[64];
   s32 planeCount;
   s32 sphereCount;
   s32 triangleCount;
@@ -42,7 +42,7 @@ typedef struct _SpatialBox
 typedef struct _SpatialHeirarchy
 {
   SpatialBox boxes[SPATIAL_BOX_COUNT];
-  Object objects[32];
+  Object objects[SPATIAL_BOX_COUNT];
   vec3 planeNormals[7];
   u32 objectCount = 0;
 }SpatialHeirarchy;

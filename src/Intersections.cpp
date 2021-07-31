@@ -5,7 +5,6 @@
 static lane_f32 rayTolerance = laneF32FromF32( 0.00001f );
 static lane_f32 minHitDistance = laneF32FromF32( 0.00001f );
 
-
 inline static lane_u32 rayTriangleTest(Triangle triangle,
 				  lane_v3* rayD,
 				  lane_v3* rayO,
@@ -126,3 +125,49 @@ inline static lane_u32 rayPlaneTest(Plane plane,
     *dist = pDist;
     return toleranceMask & distMask; 
 }
+inline static lane_u32 rayAABBTest(vec3 center, vec3 dimensions,
+				  lane_v3* rayD,
+				  lane_v3* rayO,
+				   lane_f32* dist)
+{
+  lane_v3 rayDirection = *rayD;
+  lane_v3 rayInvDir = lane_v3{1.0f,1.0f,1.0f} / rayDirection;
+  lane_v3 rayOrigin = *rayO;
+
+  vec3 minimums = center - dimensions;
+  vec3 maximums = center + dimensions;
+  
+  //aabb test using slab method from
+  //https://tavianator.com/2011/ray_box.html
+
+  lane_v3 tMax = hadamard((maximums - rayOrigin),rayInvDir);
+  lane_v3 tMin = hadamard((minimums - rayOrigin),rayInvDir);
+  
+  lane_f32 minDist = minLaneF32(tMin.x, tMax.x);
+  lane_f32 maxDist = maxLaneF32(tMin.x, tMax.x);
+
+  minDist = maxLaneF32(minDist, minLaneF32(tMin.y, tMax.y));
+  maxDist = minLaneF32(maxDist, maxLaneF32(tMin.y, tMax.y));
+
+  minDist = maxLaneF32(minDist, minLaneF32(tMin.z, tMax.z));
+  maxDist = minLaneF32(maxDist, maxLaneF32(tMin.z, tMax.z));
+
+  lane_u32 hitBox = (minDist > maxDist);
+  return hitBox;
+  /*
+  if (minDist > maxDist)
+    {
+      *dist = FLT_MAX;
+      return laneU32FromU32(0);
+    }
+
+  if (minDist < 0)
+    {
+      dist = 
+      return maxDist;
+    }
+
+  return tmin;
+  */
+}
+				   

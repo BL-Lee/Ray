@@ -47,8 +47,8 @@ World* initWorld(SpatialHeirarchy* SH)
   plane->normal = normalize(vec3( 0.0f, 0.001f, 1.0f ));
   plane->dist = 0.0f;
   plane->matIndex = 1;
-  addPlaneToObject(&object, planeIndex);
-  addObjectToSpatialHeirarchy(SH, &object);
+  //addPlaneToObject(&object, planeIndex);
+  //addObjectToSpatialHeirarchy(SH, &object);
 
   /*
   plane = getPlaneFromWorld(world, &planeIndex);

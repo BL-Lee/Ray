@@ -4,7 +4,7 @@
 #include "BLMath.h"
 #include "world.h"
 #include "camera.h"
-
+#include "BVH.h"
 
 #ifndef __USE_OPENCL
 typedef struct _WorkOrder
@@ -13,6 +13,7 @@ typedef struct _WorkOrder
   World* world;
   Image image;
   SpatialHeirarchy* SH;
+  BVH* bvh;
   u32 minX;
   u32 onePastMaxX;
   u32 minY;
@@ -72,7 +73,7 @@ inline lane_u32 rayAABBIntersection(lane_v3 rayOrigin, lane_v3 rayDirection, Spa
 }
 */
 
-static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* filmY, lane_f32* filmX,  u32 sampleCount, u32 screenX, u32 screenY);//, u16* maskPtr);
+static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bvh, lane_f32* filmY, lane_f32* filmX,  u32 sampleCount, u32 screenX, u32 screenY);//, u16* maskPtr);
 static void renderTile(World* world, Image image,
 		u32 minX, u32 onePastMaxX,
 		u32 minY, u32 onePastMaxY,

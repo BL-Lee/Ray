@@ -18,7 +18,16 @@
  #define RAYS_PER_PIXEL 8
 #endif
 #ifndef DEBUG_LINES
- #define DEBUG_LINES 1
+ #define DEBUG_LINES 0
+#endif
+#ifndef USE_SH
+ #define USE_SH 1
+#endif
+#ifndef USE_LBVH
+ #define USE_LBVH 0
+#endif
+#ifndef DIRECTIONAL_LIGHTS
+ #define DIRECTIONAL_LIGHTS 1
 #endif
 
 
@@ -29,7 +38,7 @@
 Image* blueNoise;
 
 static void renderTile(World* world, Image image,
-		SpatialHeirarchy* SH, 
+		       SpatialHeirarchy* SH, BVH* bvh, 
 		u32 minX, u32 onePastMaxX,
 		u32 minY, u32 onePastMaxY,
 		u32 sampleCount, Camera* camera)
@@ -42,7 +51,7 @@ static void renderTile(World* world, Image image,
 	{
 	  lane_f32 filmX = laneF32FromF32(-1.0f + (2.0f * (f32)x / (f32)image.width));
 	
-	  vec3 colour = rayTrace(world, camera, SH, &filmY, &filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);
+	  vec3 colour = rayTrace(world, camera, SH, bvh, &filmY, &filmX, sampleCount, x, y);//, &shapeMask[y*image.width+x]);
 	  //colour = HDRToLDR(colour);
 	  colour = linearToSRGB(colour);
 	  
@@ -64,7 +73,7 @@ static void* threadProc(void* args)
     {
       WorkOrder order = queue->queue[workIndex];
       renderTile(order.world, order.image,
-		 order.SH,
+		 order.SH, order.bvh,
 	     order.minX, order.onePastMaxX,
 		 order.minY, order.onePastMaxY, queue->raysPerPixel, queue->camera);
       
@@ -194,7 +203,7 @@ static lane_u32 rayCast(World* world, SpatialHeirarchy* SH, lane_v3 *Origin, lan
 }
 
 //TODO: When using 8 wide lanes, lane_f32's last 4 floats get clobbered to 0 when passed by value, why?
-static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f32* filmYP, lane_f32* filmXP,  u32 sampleCount, u32 screenX, u32 screenY)//, u16* maskPtr)
+static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bvh, lane_f32* filmYP, lane_f32* filmXP,  u32 sampleCount, u32 screenX, u32 screenY)//, u16* maskPtr)
 {
   lane_f32 filmY = *filmYP;
   lane_f32 filmX = *filmXP;
@@ -260,10 +269,92 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f3
 	  matIndex = 0;
       
 	  bouncesComputed += laneIncrement & laneMask;
+	  #if USE_LBVH
+	  
+	  BVHNode boxStack[(1 << (BVH_DIGIT_COUNT))];
+	  BVHNode* initial = boxStack;
+	  initial->center = bvh->center;
+	  initial->dimensions = bvh->dimensions;
+	  initial->depth = 0;
+	  u32 stackCount = 1;
+	  while (stackCount > 0)
+	    {
+	      stackCount--;
+	      BVHNode node = boxStack[stackCount];
+	      lane_f32 nodeDist;
+	      lane_u32 hitBoxMask = rayAABBTest(node.center, node.dimensions,
+					      &rayDirection, &rayOrigin,
+					      &nodeDist);
+	      //test intersection
+	      if (!MaskAllZeros(hitBoxMask))
+		{
+		  //if leaf trace it
+		  if (node.depth == BVH_DIGIT_COUNT / 3)
+		    {
+		      u32 mortonCode = positionToMortonCode(bvh, node.center);
+		      //for (u32 i = 0; i < object.triangleCount; i++)
+		      u32 index = bvh->indices[mortonCode];
+		      while (bvh->items[index].mortonCode == mortonCode)
+			{
+			  Triangle triangle = world->triangles[bvh->items[index].triangleIndex];
+			  //printf("b");
+			  lane_f32 triangleDist;
+			  lane_u32 hitMask = rayTriangleTest(triangle,
+							     &rayDirection, &rayOrigin,
+							     &minDist, &triangleDist);
+			  if (!MaskAllZeros(hitMask))
+			    {		
+			      lane_v3 normal;
+			      normal = triangle.normal;
+			      lane_u32 triangleMatIndex;
+			      triangleMatIndex = triangle.matIndex;
+			      ConditionalAssign(&minDist,      hitMask, triangleDist);
+			      ConditionalAssign(&bounceNormal, hitMask, normal);
+			      ConditionalAssign(&matIndex,     hitMask, triangleMatIndex);
+			    }
+			  index++;
+			}
+		      //trace
+		      //lookup index start from code
+		      //test triangles until collision
+		      //continue (unless sorted then break)
+		      
+		    }
+		  //otherwise split to stack
+		  else
+		    {
+		      for (s32 x = -1; x < 2; x+= 2)
+			{
+			  for (s32 y = -1; y < 2; y+= 2)
+			    {
+			      for (s32 z = -1; z < 2; z+= 2)				
+				{
+				  vec3 nextDims = node.dimensions / 2.0f;
+				  vec3 nextCenter =
+				    {
+				      node.center.x + (nextDims.x * x),
+				      node.center.y + (nextDims.y * y),
+				      node.center.z + (nextDims.z * z)
+				    };
 
+				  BVHNode split = {};
+				  split.depth = node.depth + 1;
+				  split.center = nextCenter;
+				  split.dimensions = nextDims;
+				  boxStack[stackCount] = split;
+				  stackCount++;
+				}
+			    }
+			}
+		    }
+
+		}
+	    }
+
+	  #endif
+	  #if USE_SH
 	  for (u32 boxIndex = 0; boxIndex < SH->objectCount; boxIndex++)
 	    {
-
 	      lane_f32 boxHitDistNear;
 	      boxHitDistNear = -FLT_MAX;
 	      lane_f32 boxHitDistFar;
@@ -373,7 +464,7 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f3
 		  }
 	      }
 	    }
-
+	  #endif
 #if DEBUG_LINES
 	  if (bounceCount == 0) {
 	    for (u32 i = 0; i < world->lineCount; i++)
@@ -441,8 +532,9 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f3
 	      //update attenuation based on reflection colour	      
 	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
 
+	      #if DIRECTIONAL_LIGHTS
 	      //TODO: different lane widths give different shadows
-	      //	      if (bounceCount == 0)
+	      if (bounceCount == 0)
 		{
 		  for (u32 dlightIndex = 0; dlightIndex < world->dLightCount; dlightIndex++)
 		    {
@@ -466,6 +558,7 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, lane_f3
 		      
 		    }
 		}
+	      #endif
 	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      /*
 	      vec3 tempBounce;
@@ -517,7 +610,7 @@ int main(int argc, char** argv)
   Camera* camera = initCamera(image);
 
   u32 entropy = 0xf81422;
-  for (int i = 0; i < 15; i++)
+  for (int i = 0; i < 10; i++)
     {
       vec3 loc =
 	{
@@ -528,7 +621,7 @@ int main(int argc, char** argv)
 
       loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", loc);
     }
-  //loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl");
+  loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl");
 
   BVH* bvh = constructBVH(world);
   printf("Building Spatial Heirarchy...");
@@ -588,6 +681,7 @@ int main(int argc, char** argv)
 	  order->world = world;
 	  order->image = image;
 	  order->SH = &SH;
+	  order->bvh = bvh;
 	  order->minX = minX;
 	  order->onePastMaxX = onePastMaxX;
 	  order->minY = minY;
@@ -614,6 +708,7 @@ int main(int argc, char** argv)
 	  WorkOrder order = queue.queue[workIndex];
 	  renderTile(order.world, order.image,
 		     order.SH,
+		     order.bvh,
 		     order.minX, order.onePastMaxX,
 		     order.minY, order.onePastMaxY, queue.raysPerPixel, camera);
 	}

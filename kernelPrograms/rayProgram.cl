@@ -2,10 +2,10 @@
 #define WORLD_SPHERE_COUNT 32
 #define WORLD_PLANE_COUNT 8
 #define WORLD_MATERIAL_COUNT 8
-#define WORLD_TRIANGLE_COUNT 1024
+#define WORLD_TRIANGLE_COUNT 4086
 #define WORLD_DIRECTIONAL_LIGHT_COUNT 4
-#define WORLD_LINE_COUNT 1024
-#define SPATIAL_BOX_COUNT 32
+#define WORLD_LINE_COUNT 2048
+#define SPATIAL_BOX_COUNT 64
 
 
 typedef struct __attribute__((packed))_clSphere
@@ -56,7 +56,7 @@ typedef struct __attribute__((packed))_clObject
 {
   uint planes[1];//indices into world
   uint spheres[2];
-  uint triangles[40];
+  uint triangles[64];
   int planeCount;
   int sphereCount;
   int triangleCount;
@@ -70,10 +70,10 @@ typedef struct __attribute__((packed))_clSpatialBox
 }clSpatialBox;
 
 
-typedef struct __attribute__((packed))
+typedef struct __attribute__((packed))_clSpatialHeirarchy
 {
   clSpatialBox boxes[SPATIAL_BOX_COUNT];
-  clObject objects[32];
+  clObject objects[SPATIAL_BOX_COUNT];
   float3 planeNormals[7];
   uint objectCount;
 }clSpatialHeirarchy;
@@ -558,6 +558,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   }
               }
           }
+          /*
           if (bounceCount == 0)
             {
               for (uint i = 0; i < world->lineCount; i++)
@@ -592,7 +593,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   }
                 }
             }
-        
+          */
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something
           resultColour += mat.emitColour * attenuation; // does hadamard product

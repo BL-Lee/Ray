@@ -11,7 +11,7 @@
 #include "BVH.cpp"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 128
+ #define RAYS_PER_PIXEL 8
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -40,8 +40,6 @@ char* loadKernelProgram(const char* filePath)
 
 int main(int argc, char** argv)
 {
-
-  
   const char* fileName;
   if (argc > 1)
     {
@@ -60,7 +58,7 @@ int main(int argc, char** argv)
   World* world = initWorld(&SH);
   //loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
-    u32 entropy = 0xf81422;
+  u32 entropy = 0xf81422;
   for (int i = 0; i < 8; i++)
     {
       vec3 loc =
@@ -127,13 +125,13 @@ int main(int argc, char** argv)
     
   //cl_mem clImage = clCreateImage(context, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, &clImageFormat, &clImageDesc, image.pixels, &error);
   cl_mem clImage = clCreateImage2D (context,
-						  CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
-						  &clImageFormat,
- 	clImageDesc.image_width,
- 	clImageDesc.image_height,
- 	0,
- 	image.pixels,
-									&error);
+				    CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
+				    &clImageFormat,
+				    clImageDesc.image_width,
+				    clImageDesc.image_height,
+				    0,
+				    image.pixels,
+				    &error);
   if (error)
     {
       printf("Error creating image\n\tError code:%d\n", error);
@@ -228,6 +226,7 @@ int main(int argc, char** argv)
   free(image.pixels);
   free(world);
   free(camera);
+  free(bvh);
   
   return 0;
 }
