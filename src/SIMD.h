@@ -195,32 +195,6 @@ lane_v3 operator+(lane_v3 A, lane_v3 B)
   result.z = A.z + B.z;
   return result;
 }
-lane_v3 operator-(lane_v3 A, lane_v3 B)
-{
-  lane_v3 result;
-  result.x = A.x - B.x;
-  result.y = A.y - B.y;
-  result.z = A.z - B.z;
-  return result;
-}
-lane_v3 operator*(lane_v3 A, lane_v3 B)
-{
-  lane_v3 result;
-  result.x = A.x - B.x;
-  result.y = A.y - B.y;
-  result.z = A.z - B.z;
-  return result;
-}
-
-lane_v3 operator/(lane_v3 A, lane_v3 B)
-{
-  lane_v3 result;
-  result.x = A.x - B.x;
-  result.y = A.y - B.y;
-  result.z = A.z - B.z;
-  return result;
-}
-
 lane_v3 operator+(lane_v3 A, vec3 B)
 {
   lane_v3 result = A + laneV3FromV3(B);
@@ -236,6 +210,15 @@ lane_v3 operator+=(lane_v3& A, lane_v3 B)
   A = A + B;
   return A;
 }
+
+lane_v3 operator-(lane_v3 A, lane_v3 B)
+{
+  lane_v3 result;
+  result.x = A.x - B.x;
+  result.y = A.y - B.y;
+  result.z = A.z - B.z;
+  return result;
+}
 lane_v3 operator-(lane_v3 A, vec3 B)
 {
   lane_v3 result = A - laneV3FromV3(B);
@@ -250,6 +233,15 @@ lane_v3 operator-=(lane_v3& A, lane_v3 B)
 {
   A = A - B;
   return A;
+}
+
+lane_v3 operator*(lane_v3 A, lane_v3 B)
+{
+  lane_v3 result;
+  result.x = A.x * B.x;
+  result.y = A.y * B.y;
+  result.z = A.z * B.z;
+  return result;
 }
 lane_v3 operator*(lane_v3 A, vec3 B)
 {
@@ -300,14 +292,13 @@ lane_v3 operator*=(lane_v3& A, lane_v3 B)
   A = A * B;
   return A;
 }
-lane_v3 operator/(lane_v3 A, vec3 B)
+
+lane_v3 operator/(lane_v3 A, lane_v3 B)
 {
-  lane_v3 result = A / laneV3FromV3(B);
-  return result;
-}
-lane_v3 operator/(vec3 A, lane_v3 B)
-{
-  lane_v3 result = laneV3FromV3(A) / B;
+  lane_v3 result;
+  result.x = A.x / B.x;
+  result.y = A.y / B.y;
+  result.z = A.z / B.z;
   return result;
 }
 lane_v3 operator/(lane_v3 A, lane_f32 B)
@@ -318,21 +309,19 @@ lane_v3 operator/(lane_v3 A, lane_f32 B)
   result.z = A.z / B;
   return result;
 }
-lane_v3 operator/(lane_f32 A, lane_v3 B)
-{
-  lane_v3 result = A / B;
-  return result;
-}
 lane_v3 operator/=(lane_v3& A, lane_v3 B)
 {
   A = A / B;
   return A;
 }
+
 lane_v3& lane_v3::operator=(vec3 A)
 {
   *this = laneV3FromV3(A);
   return *this;
 }
+
+  
 ///MATH
 inline lane_f32 dot(lane_v3 a, lane_v3 b)
 {

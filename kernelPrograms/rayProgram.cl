@@ -78,7 +78,17 @@ typedef struct __attribute__((packed))_clSpatialHeirarchy
   uint objectCount;
 }clSpatialHeirarchy;
 
+#define BVH_ITEM_COUNT 2048
 #define BVH_DIGIT_COUNT 6
+
+typedef struct __attribute__((packed))_clBVHNode
+{
+  float3 center;
+  float3 dimensions;
+  float3 dist;
+  uint depth;
+}clBVHNode;
+
 typedef struct __attribute__((packed))_clBVHItem
 {
   uint triangleIndex;
@@ -89,10 +99,9 @@ typedef struct __attribute__((packed))_clBVHItem
 //Build heirarchy from codes
 typedef struct __attribute__((packed))_clBVH
 {
-  uint digits;
   float3 center;
   float3 dimensions; //radius in each axis Each split divides in 2
-  clBVHItem items[1024];
+  clBVHItem items[BVH_ITEM_COUNT];
   uint indices[(1 << (BVH_DIGIT_COUNT + 1)) - 1]; //each code, and where it points to in items
   uint itemCount;
 }clBVH;
@@ -361,6 +370,8 @@ uint rayCast( __global clWorld* world, __constant clSpatialHeirarchy* SH, float3
   return matIndex;
 }
 
+/*
+
 __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __constant clSpatialHeirarchy* SHParam, uint sampleCount, __write_only image2d_t image)
 {  
   int2 pixel = {get_global_id(0), get_global_id(1)};
@@ -558,7 +569,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   }
               }
           }
-          /*
+
           if (bounceCount == 0)
             {
               for (uint i = 0; i < world->lineCount; i++)
@@ -593,7 +604,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   }
                 }
             }
-          */
+
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something
           resultColour += mat.emitColour * attenuation; // does hadamard product
@@ -634,6 +645,308 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 		  }
 		}
 
+	      float3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
+	      //TODO: different noise for random
+	      float3 randomDir = {randomBilateral32(&entropy), randomBilateral32(&entropy), randomBilateral32(&entropy)};
+	      float3 randomBounce = normalize(bounceNormal + randomDir);
+	      rayDirection = lerp3(randomBounce, pureBounce, mat.scatterScale);	  
+	    }
+	}
+      finalColour += resultColour;
+    }
+  atomic_add(&world->bounceCount, bouncesComputed);
+  float4 outColour = {finalColour / sampleCount, 0.0}; //NOTE: BGRA
+  outColour.x = linearToSRGB(outColour.x);
+  outColour.y = linearToSRGB(outColour.y);
+  outColour.z = linearToSRGB(outColour.z);
+  write_imagef(image, pixel, BGRAtoRGBA(outColour));
+  }
+*/
+uint positionToMortonCode(__constant clBVH* bvh, float3 position)
+{
+  //get coordinates scaling from 0 to b as integer on each axis
+  uint b = 1 << ((BVH_DIGIT_COUNT / 3) - 1);
+  float3 offsetCenter = position + bvh->center + bvh->dimensions;
+  float3 scaledCenter = offsetCenter * b / bvh->dimensions;
+  int3 mortonCenter = { (uint)scaledCenter.x,
+    (uint)scaledCenter.y,
+    (uint)scaledCenter.z };
+  uint code = 0;
+      
+  //interleave the bits
+  for (uint digit = 0; digit < BVH_DIGIT_COUNT / 3; digit ++)
+    {
+      uint bit = (mortonCenter.x & (1 << (digit))) != 0;
+      code |= bit << (digit*3 + 2);
+      bit = (mortonCenter.y & (1 << (digit))) != 0;
+      code |= bit << (digit*3 + 1);
+      bit = (mortonCenter.z & (1 << (digit))) != 0;
+      code |= bit << (digit*3 + 0);
+    }
+  return code;
+}
+
+inline static uint rayAABBTest(float3 center, float3 dimensions,
+                               float3 rayDirection,
+                               float3 rayOrigin)
+                               float* dist)
+{
+  //float3 rayDirection = *rayD;
+  float3 rayInvDir = float3(1.0f,1.0f,1.0f) / rayDirection;
+  //float3 rayOrigin = *rayO;
+
+  float3 minimums = center - dimensions;
+  float3 maximums = center + dimensions;
+  
+  //aabb test using slab method from
+  //https://tavianator.com/2011/ray_box.html
+
+  float3 tMax = (maximums - rayOrigin) *rayInvDir;
+  float3 tMin = (minimums - rayOrigin) * rayInvDir;
+  
+  float minDist = min(tMin.x, tMax.x);
+  float maxDist = max(tMin.x, tMax.x);
+
+  minDist = max(minDist, min(tMin.y, tMax.y));
+  maxDist = min(maxDist, max(tMin.y, tMax.y));
+
+  minDist = max(minDist, min(tMin.z, tMax.z));
+  maxDist = min(maxDist, max(tMin.z, tMax.z));
+
+  uint hitBox = (minDist < maxDist);
+  if (hitBox) {*dist = maxDist;}
+  else {*dist = 100000000.0f;}
+  return hitBox;
+}
+
+
+__kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __constant clBVH* bvh, uint sampleCount, __write_only image2d_t image)
+{  
+  int2 pixel = {get_global_id(0), get_global_id(1)};
+
+  
+  float2 film = {-1.0 + (2.0 * (float)pixel.x / (float)get_image_width(image)),
+    -1.0 + (2.0 * (float)pixel.y / (float)get_image_height(image))};
+
+  uint entropy = (pixel.x + 9123891 * 912) * (pixel.y * 19275 - 1923);
+  float tolerance = 0.0001;
+  float minHitDistance = 0.0001;
+  float3 finalColour = {0,0,0};
+  uint bouncesComputed = 0;
+  
+  for (uint i = 0; i < sampleCount; i++)
+    {
+      float2 pixelOffset = {randomUnilateral32(&entropy) * camera->halfPixelWidth * 2.0,
+        randomUnilateral32(&entropy) * camera->halfPixelHeight * 2.0};
+ 	      
+      float3 filmPos = camera->filmCenter +
+	camera->Y * film.y * (camera->halfFilmHeight + pixelOffset.y) +
+	camera->X * film.x * camera->halfFilmWidth + pixelOffset.x;
+
+      float3 lensXOffset = {randomBilateral32(&entropy) * camera->lensRadius * camera->X};
+      float3 lensYOffset = {randomBilateral32(&entropy) * camera->lensRadius * camera->Y};
+
+      
+      float3 rayOrigin = camera->pos + lensXOffset + lensYOffset;
+      float3 rayDirection = normalize(filmPos - rayOrigin);      
+      float3 bounceNormal = {};
+      float3 resultColour = {0.0,0.0,0.0};
+      float3 attenuation = {1.0f,1.0f,1.0f};//how much the colour changes from the bounced material
+      //Each time, a ray can bounce this many times
+      for (uint bounceCount = 0; bounceCount < 3; bounceCount++)
+	{	                   
+	  float minDist = FLT_MAX;
+	  uint matIndex = 0;
+	  bouncesComputed++;
+          
+	  clBVHNode boxStack[(1 << (BVH_DIGIT_COUNT))];
+	  clBVHNode* initial = boxStack;
+	  initial->center = bvh->center;
+	  initial->dimensions = bvh->dimensions;
+	  initial->depth = 0;
+	  uint stackCount = 1;
+	  while (stackCount > 0)
+	    {
+	      stackCount--;
+	      clBVHNode node = boxStack[stackCount];
+	      float nodeDist;
+	      uint hitBoxMask = rayAABBTest(node.center, node.dimensions,
+                                            rayDirection, rayOrigin);
+                                            &nodeDist);
+	      //test intersection
+	      if (hitBoxMask)
+		{
+		  //if leaf trace it
+		  if (node.depth == BVH_DIGIT_COUNT / 3)
+		    {
+		      //Get code from node's position
+		      uint mortonCode = positionToMortonCode(bvh, node.center);
+		      uint index = bvh->indices[mortonCode];
+                      //matIndex=3;
+		      //Start at index and continue until different leaf
+		      while (bvh->items[index].mortonCode == mortonCode)
+			{
+			  clTriangle triangle = world->triangles[bvh->items[index].triangleIndex];
+                          float3 v0 = triangle.v0;
+                          float3 v1 = triangle.v1;
+                          float3 v2 = triangle.v2;
+                          //v2 = triangle.normal;
+                          float3 normal = triangle.normal;
+	      
+                          float denom = dot(normal, rayDirection);
+                          uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+                          //if (toleranceMask)
+                          {
+                            float triangleOffset; //like the planeDist but for the triangle
+                            triangleOffset = -dot(normal, v0);
+                            float triangleDist;
+                            triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
+		
+                            uint planeHitMask;
+                            planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+                            if (planeHitMask & toleranceMask)
+                              {
+                                uint triangleHitMask;
+                                triangleHitMask = 0x1;
+		  
+                                float3 planePoint;
+                                planePoint = (rayDirection * triangleDist) + rayOrigin;
+
+                                float3 edgePerp;
+		  
+                                float3 edge0 = v1 - v0;
+                                edgePerp = cross(edge0, planePoint - v0);
+                                triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+                                float3 edge1 = v2 - v1;
+                                edgePerp = cross(edge1, planePoint - v1);
+                                triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+                                float3 edge2 = v0 - v2;
+                                edgePerp = cross(edge2, planePoint - v2);
+                                triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+                                uint hitMask = triangleHitMask && planeHitMask;
+		  					 
+                                if (hitMask)
+                                  {		
+                                    minDist = triangleDist;
+                                    bounceNormal = triangle.normal;
+                                    matIndex = triangle.matIndex;
+                                  }
+                              }
+                            index++;
+                          }
+                        }
+                    }
+                  //otherwise split to stack
+                  else
+                    {
+                      for (int x = -1; x < 2; x+= 2)
+                        {
+                          for (int y = -1; y < 2; y+= 2)
+                            {
+                              for (int z = -1; z < 2; z+= 2)				
+                                {
+                                  float3 nextDims = node.dimensions / 2.0f;
+                                  float3 nextCenter =
+                                    {
+                                      node.center.x + (nextDims.x * x),
+                                      node.center.y + (nextDims.y * y),
+                                      node.center.z + (nextDims.z * z)
+                                    };
+
+                                  clBVHNode split = {};
+                                  split.depth = node.depth + 1;
+                                  split.center = nextCenter;
+                                  split.dimensions = nextDims;
+                                  boxStack[stackCount] = split;
+                                  stackCount++;
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+
+
+          if (bounceCount == 0)
+            {
+              for (uint i = 0; i < world->lineCount; i++)
+                {
+                  clLine line = world->lines[i];
+                  float3 lineDir;
+                  lineDir = line.direction;
+                  float3 lineOrigin;
+                  lineOrigin = line.origin;
+
+                  float3 perpDir = cross(rayDirection, lineDir);
+
+                  float3 n2 = cross(lineDir, perpDir);
+                  float3 c1 = rayOrigin + rayDirection * (dot(lineOrigin - rayOrigin, n2) / dot(rayDirection, n2));
+
+                  float3 n1 = cross(rayDirection, perpDir);
+                  float3 c2 = lineOrigin + lineDir * (dot(rayOrigin - lineOrigin, n1) / dot(lineDir, n1));
+
+                  float dist = length(c2 - c1);
+                  float3 rayOriginToPoint = c1 - rayOrigin;
+                  float3 lineOriginToPoint = c2 - lineOrigin;
+
+                  uint distMask = dist < 0.01;
+		
+                  uint minDistMask = (length(rayOriginToPoint) < minDist) & (dot(rayDirection, rayOriginToPoint) > 0.0);
+                  uint lengthMask = (length(lineOriginToPoint) < line.length) & (dot(lineDir, lineOriginToPoint) > 0.0f);
+		
+                  uint hitMask = distMask & minDistMask & lengthMask;
+
+                  if (hitMask) {
+                    matIndex = 3;
+                  }
+                }
+            }
+
+	  clMaterial mat = world->materials[matIndex];
+	  //if matIndex is set, then we hit something
+          resultColour += mat.emitColour * attenuation; // does hadamard product
+	  if (!matIndex)
+	    {
+	      break;
+	    }
+	  else
+	    {
+	      //add any colour this object emits, times the attenuation
+	      //clamp to 0-inf
+	      float cosAttenuation = Max(dot(rayDirection*(-1.0f), bounceNormal), 0.3);
+
+	     
+	      //update attenuation based on reflection colour
+	      attenuation = mat.reflectColour * (attenuation*cosAttenuation);
+
+	      //setup for next bounce
+	      rayOrigin = rayOrigin + rayDirection * minDist;
+              /*
+              for (uint dlightIndex = 0; dlightIndex < world->dLightCount; dlightIndex++)
+		{
+		  clDirectionalLight dlight = world->dLights[dlightIndex];
+
+		  uint inDirection = dot(bounceNormal, dlight.direction) < -tolerance;
+		  if (inDirection) {
+		  
+		    float3 oppositeLightDir = -dlight.direction;
+                    float3 shadowRayOrigin = rayOrigin + bounceNormal * 0.01f;                    
+		    uint lightMatIndex = rayCast(world, SHParam, shadowRayOrigin, oppositeLightDir);
+
+		    uint hitSomething = lightMatIndex != 0;		  
+		    float3 emitColour =  dlight.colour;// * !hitSomething;
+                    if (hitSomething)
+                      emitColour = world->materials[0].emitColour;
+		    resultColour += emitColour * attenuation;
+                    bouncesComputed++;
+		  }
+		}
+              */
 	      float3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      //TODO: different noise for random
 	      float3 randomDir = {randomBilateral32(&entropy), randomBilateral32(&entropy), randomBilateral32(&entropy)};

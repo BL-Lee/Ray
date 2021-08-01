@@ -7,7 +7,7 @@ BVH* constructBVH(World* world)
   *bvh = {};
   bvh->center = {0.0f,0.0f,0.0f};
   bvh->dimensions = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
-
+  
   //Calculate bounds
   for (u32 i = 0; i < world->triangleCount; i++)
     {
@@ -33,31 +33,7 @@ BVH* constructBVH(World* world)
       //get the code for each axis
       vec3 center = (t.v0 + t.v1 + t.v2) / 3.0f;
       u32 code = positionToMortonCode(bvh, center);
-      /*
-      u32 b = 1 << ((BVH_DIGIT_COUNT / 3) - 1);
-
-      vec3 offsetCenter = center + bvh->center + bvh->dimensions;
-      //printf("%f %f %f\n", offsetCenter.x, offsetCenter.y, offsetCenter.z);
-      vec3 scaledCenter = offsetCenter * b / bvh->dimensions;
-      //printf("%f %f %f\n", scaledCenter.x, scaledCenter.y, scaledCenter.z);
-      vec3ui mortonCenter = { (u32)scaledCenter.x,
-	(u32)scaledCenter.y,
-	(u32)scaledCenter.z };
-      //printf("%d %d %d\n", mortonCenter.x, mortonCenter.y, mortonCenter.z);
-      u32 code = 0;
       
-      //interleave the bits
-      for (u32 digit = 0; digit < BVH_DIGIT_COUNT / 3; digit ++)
-	{
-	  u32 bit = (mortonCenter.x & (1 << (digit))) != 0;
-	  code |= bit << (digit*3 + 2);
-	  bit = (mortonCenter.y & (1 << (digit))) != 0;
-	  code |= bit << (digit*3 + 1);
-	  bit = (mortonCenter.z & (1 << (digit))) != 0;
-	  code |= bit << (digit*3 + 0);
-	}
-      */
-      // printf("%d\n", code);
       //add to BVH
       BVHItem item = {};
       item.triangleIndex = i;
@@ -71,16 +47,16 @@ BVH* constructBVH(World* world)
     }
 
 
-  //Sort by codes
+  //Sort items by codes
   BVHItem bucketZero[bvh->itemCount];
   BVHItem bucketOne[bvh->itemCount];
   radixSortBVH(bvh->items, bucketZero, bucketOne, 0, bvh->itemCount, BVH_DIGIT_COUNT);
 
   //Set lookup indices
+  //indices tell where to start in items
   u32 code = 0;
   for (int i = 0; i < bvh->itemCount; i++)
     {
-
       if (bvh->items[i].mortonCode > code)
 	{
 	  code = bvh->items[i].mortonCode;	  
@@ -88,12 +64,9 @@ BVH* constructBVH(World* world)
       if (bvh->items[i].mortonCode == code)
 	{
 	  bvh->indices[code] = i;
-	  /*printf("ADDED DEBUG RECT:\n\tCenter:%f %f %f\n\tDimensions:%f %f %f\n\tCode: %d\n",
-		 center.x, center.y, center.z,
-		 dimensions.x, dimensions.y, dimensions.z,
-		 code);*/
 	  vec3 center = mortonCodeToPosition(bvh, code);
-	  vec3 dimensions = bvh->dimensions / (f32)(1 << (BVH_DIGIT_COUNT / 3));	  
+	  vec3 dimensions = bvh->dimensions / (f32)(1 << (BVH_DIGIT_COUNT / 3));
+	  
 	  addDebugRectToWorld(world, center, dimensions);
 
 	  code++;
@@ -102,12 +75,12 @@ BVH* constructBVH(World* world)
   
   return bvh;
 }
+
 vec3 mortonCodeToPosition(BVH* bvh, u32 code)
 {
   vec3 center = bvh->center;
   for (int i = 0; i < BVH_DIGIT_COUNT; i += 3)
     {
-      
       vec3 offset = {0,0,0};
       f32 xOn = (1 << (i + 2)) & code ? 1.0f : -1.0f;
       offset.x += xOn * bvh->dimensions.x / (1 << ((BVH_DIGIT_COUNT - i) / 3));
@@ -124,16 +97,13 @@ vec3 mortonCodeToPosition(BVH* bvh, u32 code)
 }
 u32 positionToMortonCode(BVH* bvh, vec3 position)
 {
+  //get coordinates scaling from 0 to b as integer on each axis
   u32 b = 1 << ((BVH_DIGIT_COUNT / 3) - 1);
-
   vec3 offsetCenter = position + bvh->center + bvh->dimensions;
-  //printf("%f %f %f\n", offsetCenter.x, offsetCenter.y, offsetCenter.z);
   vec3 scaledCenter = offsetCenter * b / bvh->dimensions;
-  //printf("%f %f %f\n", scaledCenter.x, scaledCenter.y, scaledCenter.z);
   vec3ui mortonCenter = { (u32)scaledCenter.x,
     (u32)scaledCenter.y,
     (u32)scaledCenter.z };
-  //printf("%d %d %d\n", mortonCenter.x, mortonCenter.y, mortonCenter.z);
   u32 code = 0;
       
   //interleave the bits

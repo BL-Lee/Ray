@@ -4,13 +4,16 @@
 #include "world.h"
 #include "BLMath.h"
 
-
-
+#define BVH_ITEM_COUNT 2048
 //must be divisble by 3 for 3 dimensions
 #define BVH_DIGIT_COUNT 6
-#define BVH_ITEM_COUNT 2048
+
+#if BVH_DIGIT_COUNT % 3 != 0
+ #error BVH_DIGIT_COUNT must be divisible by 3!
+#endif
+
 #ifdef __USE_OPENCL
-#pragma pack(push,1)
+ #pragma pack(push,1)
 #endif
 
 typedef struct _BVHNode
@@ -31,7 +34,6 @@ typedef struct _BVHItem
 
 typedef struct _BVH
 {
-  u32 digits = BVH_DIGIT_COUNT;
   vec3 center;
   vec3 dimensions; //radius in each axis Each split divides in 2
   BVHItem items[BVH_ITEM_COUNT];
@@ -40,7 +42,7 @@ typedef struct _BVH
 }BVH;
 
 #ifdef __USE_OPENCL
-#pragma pack(pop)
+ #pragma pack(pop)
 #endif
 
 //mark off world into [0-1] cube
@@ -51,6 +53,5 @@ typedef struct _BVH
 BVH* constructBVH(World* world);
 vec3 mortonCodeToPosition(BVH* bvh, u32 code);
 u32 positionToMortonCode(BVH* bvh, vec3 position);
-//void radixSortBVH(BVHItem* bucket, u32 start, u32 end, u32 digit);
 void radixSortBVH(BVHItem* bucket, BVHItem* bucketZero, BVHItem* bucketOne,  u32 start, u32 end, u32 digit);
 #endif

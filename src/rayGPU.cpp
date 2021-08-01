@@ -11,7 +11,7 @@
 #include "BVH.cpp"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 8
+ #define RAYS_PER_PIXEL 512
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -115,8 +115,8 @@ int main(int argc, char** argv)
   int error;
   cl_mem clWorld = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(World), world, &error);
   cl_mem clCamera = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(Camera), camera, &error);
-  cl_mem clSH = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(SpatialHeirarchy), &SH, &error);
-  
+  //cl_mem clSH = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(SpatialHeirarchy), &SH, &error);
+  cl_mem clBVH = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(BVH), bvh, &error);
   cl_image_format clImageFormat = {CL_RGBA, CL_UNORM_INT8};
   cl_image_desc clImageDesc = {};
   clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
@@ -140,7 +140,7 @@ int main(int argc, char** argv)
    
   clSetKernelArg(kernel, 0, sizeof(cl_mem), &clWorld);
   clSetKernelArg(kernel, 1, sizeof(cl_mem), &clCamera);
-  clSetKernelArg(kernel, 2, sizeof(cl_mem), &clSH);
+  clSetKernelArg(kernel, 2, sizeof(cl_mem), &clBVH);
   u32 sampleCount = RAYS_PER_PIXEL;
   clSetKernelArg(kernel, 3, sizeof(u32), &sampleCount);
   clSetKernelArg(kernel, 4, sizeof(cl_mem), &clImage);
@@ -217,6 +217,7 @@ int main(int argc, char** argv)
   
   clReleaseMemObject(clWorld);
   clReleaseMemObject(clCamera);
+  clReleaseMemObject(clBVH);
   clReleaseMemObject(clImage);
   clReleaseProgram(program);
   clReleaseKernel(kernel);

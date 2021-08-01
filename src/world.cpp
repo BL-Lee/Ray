@@ -251,6 +251,11 @@ Plane* getPlaneFromWorld(World* world, u32* index)
 
 void addLineToWorld(World* world, vec3 origin, vec3 direction, f32 length)
 {
+  if (world->lineCount == WORLD_LINE_COUNT)
+    {
+      printf("WORLD LINE OVERFLOW. EXITING...\n");
+      exit(1);
+    }
   Line* line = world->lines + world->lineCount;
   line->origin = origin;
   line->direction = direction;

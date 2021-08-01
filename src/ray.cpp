@@ -15,16 +15,16 @@
 #include "Intersections.cpp"
 
 #ifndef RAYS_PER_PIXEL 
- #define RAYS_PER_PIXEL 8
+ #define RAYS_PER_PIXEL 128
 #endif
 #ifndef DEBUG_LINES
  #define DEBUG_LINES 0
 #endif
 #ifndef USE_SH
- #define USE_SH 1
+ #define USE_SH 0
 #endif
 #ifndef USE_LBVH
- #define USE_LBVH 0
+ #define USE_LBVH 1
 #endif
 #ifndef DIRECTIONAL_LIGHTS
  #define DIRECTIONAL_LIGHTS 1
@@ -269,7 +269,7 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bv
 	  matIndex = 0;
       
 	  bouncesComputed += laneIncrement & laneMask;
-	  #if USE_LBVH
+#if USE_LBVH
 	  
 	  BVHNode boxStack[(1 << (BVH_DIGIT_COUNT))];
 	  BVHNode* initial = boxStack;
@@ -291,9 +291,10 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bv
 		  //if leaf trace it
 		  if (node.depth == BVH_DIGIT_COUNT / 3)
 		    {
+		      //Get code from node's position
 		      u32 mortonCode = positionToMortonCode(bvh, node.center);
-		      //for (u32 i = 0; i < object.triangleCount; i++)
 		      u32 index = bvh->indices[mortonCode];
+		      //Start at index and continue until different leaf
 		      while (bvh->items[index].mortonCode == mortonCode)
 			{
 			  Triangle triangle = world->triangles[bvh->items[index].triangleIndex];
@@ -314,11 +315,6 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bv
 			    }
 			  index++;
 			}
-		      //trace
-		      //lookup index start from code
-		      //test triangles until collision
-		      //continue (unless sorted then break)
-		      
 		    }
 		  //otherwise split to stack
 		  else
@@ -351,8 +347,8 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bv
 		}
 	    }
 
-	  #endif
-	  #if USE_SH
+#endif
+#if USE_SH
 	  for (u32 boxIndex = 0; boxIndex < SH->objectCount; boxIndex++)
 	    {
 	      lane_f32 boxHitDistNear;
@@ -464,9 +460,10 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bv
 		  }
 	      }
 	    }
-	  #endif
+#endif //use SH
 #if DEBUG_LINES
 	  if (bounceCount == 0) {
+	    //TODO: sort lines into spatial partition
 	    for (u32 i = 0; i < world->lineCount; i++)
 	      {
 		Line line = world->lines[i];
@@ -532,8 +529,9 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bv
 	      //update attenuation based on reflection colour	      
 	      attenuation = hadamard(reflectColour, attenuation*cosAttenuation);
 
-	      #if DIRECTIONAL_LIGHTS
+#if DIRECTIONAL_LIGHTS
 	      //TODO: different lane widths give different shadows
+	      //TODO: interpolation, shadows are very noticeable around edges
 	      if (bounceCount == 0)
 		{
 		  for (u32 dlightIndex = 0; dlightIndex < world->dLightCount; dlightIndex++)
@@ -558,7 +556,7 @@ static vec3 rayTrace(World* world, Camera* camera, SpatialHeirarchy* SH, BVH* bv
 		      
 		    }
 		}
-	      #endif
+#endif
 	      lane_v3 pureBounce = rayDirection - bounceNormal*2.0f*dot(rayDirection, bounceNormal);
 	      /*
 	      vec3 tempBounce;
@@ -610,7 +608,7 @@ int main(int argc, char** argv)
   Camera* camera = initCamera(image);
 
   u32 entropy = 0xf81422;
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < 30; i++)
     {
       vec3 loc =
 	{

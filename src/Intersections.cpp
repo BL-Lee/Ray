@@ -131,7 +131,7 @@ inline static lane_u32 rayAABBTest(vec3 center, vec3 dimensions,
 				   lane_f32* dist)
 {
   lane_v3 rayDirection = *rayD;
-  lane_v3 rayInvDir = lane_v3{1.0f,1.0f,1.0f} / rayDirection;
+  lane_v3 rayInvDir = laneV3FromV3({1.0f,1.0f,1.0f}) / rayDirection;
   lane_v3 rayOrigin = *rayO;
 
   vec3 minimums = center - dimensions;
@@ -140,8 +140,8 @@ inline static lane_u32 rayAABBTest(vec3 center, vec3 dimensions,
   //aabb test using slab method from
   //https://tavianator.com/2011/ray_box.html
 
-  lane_v3 tMax = hadamard((maximums - rayOrigin),rayInvDir);
-  lane_v3 tMin = hadamard((minimums - rayOrigin),rayInvDir);
+  lane_v3 tMax = hadamard((maximums - rayOrigin), rayInvDir);
+  lane_v3 tMin = hadamard((minimums - rayOrigin), rayInvDir);
   
   lane_f32 minDist = minLaneF32(tMin.x, tMax.x);
   lane_f32 maxDist = maxLaneF32(tMin.x, tMax.x);
@@ -152,7 +152,7 @@ inline static lane_u32 rayAABBTest(vec3 center, vec3 dimensions,
   minDist = maxLaneF32(minDist, minLaneF32(tMin.z, tMax.z));
   maxDist = minLaneF32(maxDist, maxLaneF32(tMin.z, tMax.z));
 
-  lane_u32 hitBox = (minDist > maxDist);
+  lane_u32 hitBox = (minDist < maxDist);
   return hitBox;
   /*
   if (minDist > maxDist)
