@@ -79,13 +79,13 @@ typedef struct __attribute__((packed))_clSpatialHeirarchy
 }clSpatialHeirarchy;
 
 #define BVH_ITEM_COUNT 2048
-#define BVH_DIGIT_COUNT 6
+#define BVH_DIGIT_COUNT 3
 
 typedef struct __attribute__((packed))_clBVHNode
 {
   float3 center;
   float3 dimensions;
-  float3 dist;
+  float dist;
   uint depth;
 }clBVHNode;
 
@@ -209,6 +209,66 @@ float linearToSRGB(float linear)
   return result;  
 }
 
+inline static uint rayTriangleTest(clTriangle triangle,\
+                                   float3 rayDirection, float3 rayOrigin,\
+                                   float minDist,\
+                                   float* dist)
+{
+    float tolerance = 0.00001;
+  float minHitDistance = 0.00001;
+
+  float3 v0 = triangle.v0;
+  float3 v1 = triangle.v1;
+  float3 v2 = triangle.v2;
+  float3 normal = triangle.normal;
+	      
+  float denom = dot(normal, rayDirection);
+  uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
+
+  //if (toleranceMask)
+  {
+    float triangleOffset; //like the planeDist but for the triangle
+    triangleOffset = -dot(normal, v0);
+    float triangleDist;
+    triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
+		
+    uint planeHitMask;
+    planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
+    if (planeHitMask & toleranceMask)
+      {
+        uint triangleHitMask;
+        triangleHitMask = 0x1;
+		  
+        float3 planePoint;
+        planePoint = (rayDirection * triangleDist) + rayOrigin;
+
+        float3 edgePerp;
+		  
+        float3 edge0 = v1 - v0;
+        edgePerp = cross(edge0, planePoint - v0);
+        triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+        float3 edge1 = v2 - v1;
+        edgePerp = cross(edge1, planePoint - v1);
+        triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+        float3 edge2 = v0 - v2;
+        edgePerp = cross(edge2, planePoint - v2);
+        triangleHitMask &= dot(normal, edgePerp) > 0.0;
+
+        uint hitMask = triangleHitMask && planeHitMask;
+		  					 
+        if (hitMask)
+          {
+            *dist = triangleDist;
+            return hitMask;
+          }
+      }
+  }
+  return 0;
+
+}
+
 
 //get the matIndex of the first thing we hit, not necessarily the closest one
 uint rayCast( __global clWorld* world, __constant clSpatialHeirarchy* SH, float3 rayOrigin, float3 rayDirection)
@@ -314,55 +374,16 @@ uint rayCast( __global clWorld* world, __constant clSpatialHeirarchy* SH, float3
           {
             clTriangle triangle = world->triangles[object.triangles[i]];
 
-            float3 v0 = triangle.v0;
-            float3 v1 = triangle.v1;
-            float3 v2 = triangle.v2;
-            //v2 = triangle.normal;
-            float3 normal = triangle.normal;//normalize(cross(v1-v0, v2-v0));
-	      
-            float denom = dot(normal, rayDirection);
-            uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
-
-            //if (toleranceMask)
-            {
-              float triangleOffset; //like the planeDist but for the triangle
-              triangleOffset = -dot(normal, v0);
-              float triangleDist;
-              triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
-		
-              uint planeHitMask;
-              planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
-              if (planeHitMask & toleranceMask)
-                {
-                  uint triangleHitMask;
-                  triangleHitMask = 0x1;
-		  
-                  float3 planePoint;
-                  planePoint = (rayDirection * triangleDist) + rayOrigin;
-
-                  float3 edgePerp;
-		  
-                  float3 edge0 = v1 - v0;
-                  edgePerp = cross(edge0, planePoint - v0);
-                  triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-                  float3 edge1 = v2 - v1;
-                  edgePerp = cross(edge1, planePoint - v1);
-                  triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-                  float3 edge2 = v0 - v2;
-                  edgePerp = cross(edge2, planePoint - v2);
-                  triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-                  uint hitMask = triangleHitMask && planeHitMask;
+            float triangleDist;
+            uint hitMask = rayTriangleTest(triangle, rayDirection, rayOrigin, minDist, &triangleDist);
 		  					 
-                  if (hitMask)
-                    {
-                      matIndex = triangle.matIndex;
-                      return matIndex;
-                    }
-                }
-            }
+            if (hitMask)
+              {
+                matIndex = triangle.matIndex;
+                return matIndex;
+              }
+            
+
           }
       }
     }
@@ -688,12 +709,13 @@ uint positionToMortonCode(__constant clBVH* bvh, float3 position)
 
 inline static uint rayAABBTest(float3 center, float3 dimensions,
                                float3 rayDirection,
-                               float3 rayOrigin)
+                               float3 rayOrigin,
                                float* dist)
 {
   //float3 rayDirection = *rayD;
   float3 rayInvDir = float3(1.0f,1.0f,1.0f) / rayDirection;
   //float3 rayOrigin = *rayO;
+  
 
   float3 minimums = center - dimensions;
   float3 maximums = center + dimensions;
@@ -714,8 +736,18 @@ inline static uint rayAABBTest(float3 center, float3 dimensions,
   maxDist = min(maxDist, max(tMin.z, tMax.z));
 
   uint hitBox = (minDist < maxDist);
-  if (hitBox) {*dist = maxDist;}
-  else {*dist = 100000000.0f;}
+  if (hitBox)
+    {
+      if (minDist < 0)
+        {
+          *dist = maxDist;
+        }
+      else
+        {
+          *dist = minDist;
+        }
+    }
+
   return hitBox;
 }
 
@@ -764,114 +796,93 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
 	  initial->center = bvh->center;
 	  initial->dimensions = bvh->dimensions;
 	  initial->depth = 0;
-	  uint stackCount = 1;
-	  while (stackCount > 0)
+          
+
+          uint hitNode = rayAABBTest(initial->center, initial->dimensions,
+                                     rayDirection, rayOrigin,
+                                     &initial->dist);
+          
+	  uint stackCount = hitNode;
+          uint hitATriangle = 0;
+	  while (stackCount > 0 && !hitATriangle)
 	    {
-	      stackCount--;
-	      clBVHNode node = boxStack[stackCount];
-	      float nodeDist;
-	      uint hitBoxMask = rayAABBTest(node.center, node.dimensions,
-                                            rayDirection, rayOrigin);
-                                            &nodeDist);
-	      //test intersection
-	      if (hitBoxMask)
-		{
-		  //if leaf trace it
-		  if (node.depth == BVH_DIGIT_COUNT / 3)
-		    {
-		      //Get code from node's position
-		      uint mortonCode = positionToMortonCode(bvh, node.center);
-		      uint index = bvh->indices[mortonCode];
-                      //matIndex=3;
-		      //Start at index and continue until different leaf
-		      while (bvh->items[index].mortonCode == mortonCode)
-			{
-			  clTriangle triangle = world->triangles[bvh->items[index].triangleIndex];
-                          float3 v0 = triangle.v0;
-                          float3 v1 = triangle.v1;
-                          float3 v2 = triangle.v2;
-                          //v2 = triangle.normal;
-                          float3 normal = triangle.normal;
-	      
-                          float denom = dot(normal, rayDirection);
-                          uint toleranceMask = (denom > tolerance) | (denom < -tolerance);
-
-                          //if (toleranceMask)
-                          {
-                            float triangleOffset; //like the planeDist but for the triangle
-                            triangleOffset = -dot(normal, v0);
-                            float triangleDist;
-                            triangleDist = -(dot(normal, rayOrigin) + triangleOffset) / denom; 
-		
-                            uint planeHitMask;
-                            planeHitMask = (triangleDist > minHitDistance) & (triangleDist < minDist);
-                            if (planeHitMask & toleranceMask)
-                              {
-                                uint triangleHitMask;
-                                triangleHitMask = 0x1;
-		  
-                                float3 planePoint;
-                                planePoint = (rayDirection * triangleDist) + rayOrigin;
-
-                                float3 edgePerp;
-		  
-                                float3 edge0 = v1 - v0;
-                                edgePerp = cross(edge0, planePoint - v0);
-                                triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-                                float3 edge1 = v2 - v1;
-                                edgePerp = cross(edge1, planePoint - v1);
-                                triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-                                float3 edge2 = v0 - v2;
-                                edgePerp = cross(edge2, planePoint - v2);
-                                triangleHitMask &= dot(normal, edgePerp) > 0.0;
-
-                                uint hitMask = triangleHitMask && planeHitMask;
-		  					 
-                                if (hitMask)
-                                  {		
-                                    minDist = triangleDist;
-                                    bounceNormal = triangle.normal;
-                                    matIndex = triangle.matIndex;
-                                  }
-                              }
-                            index++;
-                          }
-                        }
-                    }
-                  //otherwise split to stack
-                  else
+              stackCount--;
+              float minNodeDist = FLT_MAX;
+              uint boxIndex = 0;
+              for (int i = stackCount; i >= 0; i--)
+                {
+                  if (boxStack[i].dist < minNodeDist)
                     {
-                      for (int x = -1; x < 2; x+= 2)
+                      boxIndex = i;
+                    }
+                }
+                            
+	      clBVHNode node = boxStack[boxIndex];
+              boxStack[boxIndex] = boxStack[stackCount];
+              //test intersection
+              //if leaf trace it
+              if (node.depth == BVH_DIGIT_COUNT / 3)
+                {
+                  //Get code from node's position
+                  uint mortonCode = positionToMortonCode(bvh, node.center);
+                  uint index = bvh->indices[mortonCode];
+                  //matIndex=3;
+                  //Start at index and continue until different leaf
+                  while (bvh->items[index].mortonCode == mortonCode)
+                    {
+                      clTriangle triangle = world->triangles[bvh->items[index].triangleIndex];
+                      float triangleDist;
+                      uint hitMask = rayTriangleTest(triangle, rayDirection, rayOrigin, minDist, &triangleDist);
+                      if (hitMask)
+                        {		
+                          minDist = triangleDist;
+                          bounceNormal = triangle.normal;
+                          matIndex = triangle.matIndex;
+                          hitATriangle = 1;
+                        }
+                      index++;
+                    }
+                }
+              //otherwise split to stack
+              else
+                {
+                  for (int x = -1; x < 2; x+= 2)
+                    {
+                      for (int y = -1; y < 2; y+= 2)
                         {
-                          for (int y = -1; y < 2; y+= 2)
+                          for (int z = -1; z < 2; z+= 2)				
                             {
-                              for (int z = -1; z < 2; z+= 2)				
+                              float3 nextDims = node.dimensions / 2.0f;
+                              float3 nextCenter =
                                 {
-                                  float3 nextDims = node.dimensions / 2.0f;
-                                  float3 nextCenter =
-                                    {
-                                      node.center.x + (nextDims.x * x),
-                                      node.center.y + (nextDims.y * y),
-                                      node.center.z + (nextDims.z * z)
-                                    };
+                                  node.center.x + (nextDims.x * x),
+                                  node.center.y + (nextDims.y * y),
+                                  node.center.z + (nextDims.z * z)
+                                };
 
+                              float nodeDist;
+                              uint hitNode = rayAABBTest(node.center, node.dimensions,
+                                                         rayDirection, rayOrigin,
+                                                         &nodeDist);
+                              if (hitNode)
+                                {
                                   clBVHNode split = {};
                                   split.depth = node.depth + 1;
                                   split.center = nextCenter;
                                   split.dimensions = nextDims;
+                                  split.dist = nodeDist;
                                   boxStack[stackCount] = split;
                                   stackCount++;
                                 }
                             }
                         }
                     }
-
                 }
+
             }
 
 
+          /*
           if (bounceCount == 0)
             {
               for (uint i = 0; i < world->lineCount; i++)
@@ -906,7 +917,7 @@ __kernel void rayTrace(__global clWorld* world, __global clCamera* camera, __con
                   }
                 }
             }
-
+          */
 	  clMaterial mat = world->materials[matIndex];
 	  //if matIndex is set, then we hit something
           resultColour += mat.emitColour * attenuation; // does hadamard product

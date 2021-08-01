@@ -15,19 +15,19 @@
 #include "Intersections.cpp"
 
 #ifndef RAYS_PER_PIXEL 
- #define RAYS_PER_PIXEL 128
+ #define RAYS_PER_PIXEL 8
 #endif
 #ifndef DEBUG_LINES
  #define DEBUG_LINES 0
 #endif
 #ifndef USE_SH
- #define USE_SH 0
+ #define USE_SH 1
 #endif
 #ifndef USE_LBVH
- #define USE_LBVH 1
+ #define USE_LBVH 0
 #endif
 #ifndef DIRECTIONAL_LIGHTS
- #define DIRECTIONAL_LIGHTS 1
+ #define DIRECTIONAL_LIGHTS 0
 #endif
 
 

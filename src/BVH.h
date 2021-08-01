@@ -6,7 +6,7 @@
 
 #define BVH_ITEM_COUNT 2048
 //must be divisble by 3 for 3 dimensions
-#define BVH_DIGIT_COUNT 6
+#define BVH_DIGIT_COUNT 3
 
 #if BVH_DIGIT_COUNT % 3 != 0
  #error BVH_DIGIT_COUNT must be divisible by 3!
