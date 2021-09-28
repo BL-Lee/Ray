@@ -12,5 +12,3 @@ This can either be compiled using the included Makefile or build batch file. By 
 make gpu
 ```
 
-## License
-[MIT](https://choosealicense.com/licenses/mit/)
