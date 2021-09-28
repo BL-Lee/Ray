@@ -1,8 +1,0 @@
-#!/bin/bash
-
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-cd "${DIR}"
-
-g++ -D__USE_OPENCL -O2 -framework OpenCL --std=c++11 src/rayGPU.cpp  -o ray
-#./ray
-#open out.bmp
