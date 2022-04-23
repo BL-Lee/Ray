@@ -14,7 +14,7 @@ World* initWorld(SpatialHeirarchy* SH)
   world->materials[0].emitColour = { 0.11f, 0.11f, 0.11f };
   
   world->materials[1] = {};
-  world->materials[1].reflectColour = { 0.8f, 0.7f, 0.2f };
+  world->materials[1].reflectColour = { 0.2f, 0.7f, 0.2f };
   world->materials[1].scatterScale = 0.2;
   
   world->materials[2].emitColour = {};
@@ -26,11 +26,11 @@ World* initWorld(SpatialHeirarchy* SH)
   world->materials[3].scatterScale = 1;
     
   world->materials[4].emitColour = {};
-  world->materials[4].reflectColour = { 0.1f, 0.4f, 0.8f };
+  world->materials[4].reflectColour = { 0.5f, 0.7f, 0.8f };
   world->materials[4].scatterScale = 1.0;
   
   world->materials[5].emitColour = {0.0f,0.0f,0.0f};
-  world->materials[5].reflectColour = {0.2f,0.9f,0.2f};
+  world->materials[5].reflectColour = {0.6f, 0.4f, 0.7f};
   world->materials[5].scatterScale = 0.9;
 
   world->materials[6].emitColour = {0.2f,0.2f,0.2f};
@@ -47,18 +47,9 @@ World* initWorld(SpatialHeirarchy* SH)
   plane->normal = normalize(vec3( 0.0f, 0.001f, 1.0f ));
   plane->dist = 0.0f;
   plane->matIndex = 1;
-  //addPlaneToObject(&object, planeIndex);
-  //addObjectToSpatialHeirarchy(SH, &object);
-
-  /*
-  plane = getPlaneFromWorld(world, &planeIndex);
-  object = {};
-  plane->normal = { 0.0f, 0.0f, -1.0f };
-  plane->dist = 10.0f;
-  plane->matIndex = 1;
   addPlaneToObject(&object, planeIndex);
   addObjectToSpatialHeirarchy(SH, &object);
-  */
+
   //spheres
 
   u32 sphereIndex;
@@ -144,18 +135,13 @@ World* initWorld(SpatialHeirarchy* SH)
   world->dLights[0].direction = normalize(vec3(-0.00000f,0.001f,-1.0f));
   world->dLights[0].colour = {0.3f,0.3f,0.3f};
 
-
+  /*
   world->dLights[1] = {};
   world->dLights[1].direction = normalize(vec3(1.0f,0.0f,-1.0f));
   world->dLights[1].colour = {0.8f,0.0f,0.8f};
+  */
 
-  Line* line = world->lines;
-  line->origin = {2.0f,0.0f,2.0f};
-  line->direction = normalize(vec3(0.0f,0.0f,1.0f));
-  line->length = 2.0f;
-  world->lineCount = 1;
-
-  world->dLightCount = 2;
+  world->dLightCount = 1;
   
   return world;
 }

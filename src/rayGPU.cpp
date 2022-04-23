@@ -11,7 +11,7 @@
 #include "BVH.cpp"
 
 #ifndef RAYS_PER_PIXEL
- #define RAYS_PER_PIXEL 8
+ #define RAYS_PER_PIXEL 16
 #endif
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
@@ -59,7 +59,7 @@ int main(int argc, char** argv)
   //loadSTLShape(world, &SH, "assets/models/Dodecahedron.stl", vec3(0.5f,0.0f,0.0f));
   Camera* camera = initCamera(image);
   u32 entropy = 0xf81422;
-  for (int i = 0; i < 40; i++)
+  for (int i = 0; i < 10; i++)
     {
       vec3 loc =
 	{

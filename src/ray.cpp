@@ -15,10 +15,10 @@
 #include "Intersections.cpp"
 
 #ifndef RAYS_PER_PIXEL 
- #define RAYS_PER_PIXEL 8
+ #define RAYS_PER_PIXEL 128
 #endif
 #ifndef DEBUG_LINES
- #define DEBUG_LINES 0
+ #define DEBUG_LINES 1
 #endif
 #ifndef USE_SH
  #define USE_SH 1
@@ -27,7 +27,7 @@
  #define USE_LBVH 0
 #endif
 #ifndef DIRECTIONAL_LIGHTS
- #define DIRECTIONAL_LIGHTS 0
+ #define DIRECTIONAL_LIGHTS 1
 #endif
 
 
@@ -608,7 +608,7 @@ int main(int argc, char** argv)
   Camera* camera = initCamera(image);
 
   u32 entropy = 0xf81422;
-  for (int i = 0; i < 30; i++)
+  for (int i = 0; i < 9; i++)
     {
       vec3 loc =
 	{
